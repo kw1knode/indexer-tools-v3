@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: node16
+    runs-on: ubuntu-20.04
 
     steps:
     - name: Check out code
@@ -22,6 +22,7 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v2
       with:
+        node-version: '16.x'
         context: .
         push: true
         tags: kw1k/indexer-tools:latest
