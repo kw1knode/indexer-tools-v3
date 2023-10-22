@@ -1,7 +1,7 @@
 <template>
   <v-data-table
       :headers="headers"
-      :items="allocationStore.getAllocations"
+      :items="allocationStore.getFilteredAllocations"
       item-selectable="subgraphDeployment.ipfsHash"
       class="elevation-1"
       :custom-sort="customSort"
@@ -14,6 +14,15 @@
       v-model:items-per-page="tableSettingsStore.allocationSettings.itemsPerPage"
       hover
   >
+    <template v-slot:top>
+      <v-select
+          v-model="subgraphSettingsStore.settings.statusFilter"
+          :items="[{title:'No Filter', value:'none'},{title:'All Reported Status', value:'all'},{title:'Closable', value:'closable'},{title: 'Healthy/Synced', value:'healthy-synced'},{title:'Syncing', value:'syncing'},{title:'Failed', value:'failed'},{title:'Non-Deterministic', value:'non-deterministic'},{title:'Deterministic', value:'deterministic'}]"
+          label="Status Filter"
+          class="d-inline-block mx-4 mt-5"
+          style="min-width:13rem;max-width: 15rem;"
+      ></v-select>
+    </template>
     <template v-slot:item.deploymentStatus.blocksBehindChainhead="{ item }">
       <v-menu
         min-width="200px"
@@ -206,11 +215,11 @@
         <td></td>
         <td></td>
         <td></td>
-        <td><strong>Avg APR: {{ numeral(allocationStore.avgAPR).format('0,0.00%') }}</strong>&nbsp;&nbsp;</td>
-        <td><strong>Daily Rewards Sum: {{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.dailyRewardsSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
-        <td><strong>Daily Rewards Cut Sum: {{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.dailyRewardsCutSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
-        <td><strong>Pending Rewards Sum: {{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.pendingRewardsSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
-        <td><strong>Pending Rewards Cut Sum: {{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.pendingRewardsCutSum))).format('0,0') }} GRT</strong></td>
+        <td><strong>{{ numeral(allocationStore.avgAPR).format('0,0.00%') }}</strong>&nbsp;&nbsp;</td>
+        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.dailyRewardsSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
+        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.dailyRewardsCutSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
+        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.pendingRewardsSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
+        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.pendingRewardsCutSum))).format('0,0') }} GRT</strong></td>
         <td></td>
         <td></td>
         <td></td>
@@ -218,11 +227,6 @@
         <td></td>
         <td></td>
       </tr>
-      <download-csv
-          :data   = "allocationStore.getAllocations" 
-          :csv-title="'allocations'">
-          Download Data
-      </download-csv>
     </template>
   </v-data-table>
   <div>
