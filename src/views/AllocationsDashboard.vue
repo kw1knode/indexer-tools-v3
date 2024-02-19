@@ -43,13 +43,13 @@
             >
               <v-avatar :color="item.deploymentStatus != undefined ? item.deploymentStatus.color : ''" size="34">
                 <v-avatar size="30">
-                  <v-img :src="item.subgraphDeployment.versions[0].subgraph.image" />
+                  <v-img :src="item.subgraphDeployment.versions[0].subgraph.metadata.image" />
                 </v-avatar>
               </v-avatar>
             </v-badge>
             <v-avatar :color="item.deploymentStatus != undefined ? item.deploymentStatus.color : ''" size="34">
               <v-avatar size="30" v-if="!item.subgraphDeployment.deniedAt">
-                <v-img :src="item.subgraphDeployment.versions[0].subgraph.image" />
+                <v-img :src="item.subgraphDeployment.versions[0].subgraph.metadata.image" />
               </v-avatar>
             </v-avatar>
           </v-btn>
@@ -158,7 +158,7 @@
       {{ numeral(Web3.utils.fromWei(item.subgraphDeployment.stakedTokens.toString())).format('0,0') }} GRT
     </template>
     <template v-slot:item.proportion="{ item }">
-      {{ numeral(item.proportion*100).format('0,0.000') }}%
+      {{ numeral(item.proportion).format('0,0.0000') }}
     </template>
     <template v-slot:item.apr="{ item }">
       {{ numeral(item.apr).format('0,0.00') }}%
@@ -281,7 +281,7 @@ const headers = ref([
       align: 'start',
       key: 'deploymentStatus.blocksBehindChainhead',
     },
-    { title: 'Name', key: 'subgraphDeployment.versions[0].subgraph.displayName' },
+    { title: 'Name', key: 'subgraphDeployment.versions[0].subgraph.metadata.displayName' },
     { title: 'Allocated', key: 'allocatedTokens'},
     { title: 'Created', key: 'createdAt' },
     { title: 'Allocation Duration', key: 'activeDuration'},

@@ -30,7 +30,7 @@
       show-expand
       :expanded="subgraphStore.selected"
   >
-    <template v-slot:item.image="{ item }">
+    <template v-slot:item.metadata.image="{ item }">
       <v-badge
           :model-value="item.currentVersion.subgraphDeployment && item.currentVersion.subgraphDeployment.deniedAt != '0'"
           bordered
@@ -40,7 +40,7 @@
           avatar
       >
         <v-avatar size="30">
-          <v-img :src="item.image" />
+          <v-img :src="item.metadata.image" />
         </v-avatar>
       </v-badge>
     </template>
@@ -60,10 +60,10 @@
       {{ numeral(Web3.utils.fromWei(item.currentVersion.subgraphDeployment.stakedTokens)).format('0,0') }} GRT
     </template>
     <template v-slot:item.proportion="{ item }">
-      {{ numeral(item.proportion).format('0,0.000%') }}
+      {{ numeral(item.proportion).format('0,0.0000') }}
     </template>
     <template v-slot:item.newProportion="{ item }">
-      {{ numeral(item.newProportion).format('0,0.000%') }}
+      {{ numeral(item.newProportion).format('0,0.0000') }}
     </template>
     <template v-slot:item.apr="{ item }">
       {{ numeral(item.apr).format('0,0.00') }}%
@@ -141,9 +141,9 @@ const headers = ref([
           title: 'Img',
           align: 'start',
           sortable: false,
-          key: 'image',
+          key: 'metadata.image',
         },
-        { title: 'Name', key: 'displayName' },
+        { title: 'Name', key: 'metadata.displayName' },
         { title: 'Current APR', key: 'apr'},
         { title: 'New APR', key: 'newApr'},
         { title: 'Est Daily Rewards (Before Cut)', key: 'dailyRewards'},

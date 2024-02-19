@@ -163,7 +163,7 @@ export const useAllocationStore = defineStore('allocationStore', {
       for(let i = 0; i < state.allocations.length; i++){
         let allocation = state.allocations[i];
         if (allocation.subgraphDeployment.stakedTokens > 0)
-          proportions[i] = { proportion: allocation.subgraphDeployment.signalledTokens / allocation.subgraphDeployment.stakedTokens };
+          proportions[i] = { proportion: ( allocation.subgraphDeployment.signalledTokens / networkStore.getTotalTokensSignalled ) / ( allocation.subgraphDeployment.stakedTokens / networkStore.getTotalTokensAllocated ) };
         else
           proportions[i] = { proportion:  0 };
       }
@@ -385,8 +385,10 @@ export const useAllocationStore = defineStore('allocationStore', {
             subgraphDeployment{
               versions(first:1, orderBy:version, orderDirection:desc){
                 subgraph{
-                  image
-                  displayName
+                  metadata{
+                    image
+                    displayName
+                  }
                 }
               }
               ipfsHash

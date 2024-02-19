@@ -131,7 +131,7 @@
               >
               <v-avatar :color="item.deploymentStatus.health != undefined ? item.deploymentStatus.color : ''" size="34">
                 <v-avatar size="30">
-                  <v-img :src="item.image" />
+                  <v-img :src="item.metadata.image" />
                 </v-avatar>
               </v-avatar>
             </v-badge>
@@ -146,7 +146,7 @@
             >
               <v-avatar :color="item.deploymentStatus.health != undefined ? item.deploymentStatus.color : ''" size="34">
                 <v-avatar size="30">
-                  <v-img :src="item.image" />
+                  <v-img :src="item.metadata.image" />
                 </v-avatar>
               </v-avatar>
             </v-badge>
@@ -177,7 +177,7 @@
                   <template v-slot:default="{ isActive }">
                     <v-card title="Offchain Sync Subgraph">
                       <v-card-text>
-                        Add {{ item.displayName }} ({{ item.currentVersion.subgraphDeployment.ipfsHash }}) to list of offchain sync subgraphs?
+                        Add {{ item.metadata.displayName }} ({{ item.currentVersion.subgraphDeployment.ipfsHash }}) to list of offchain sync subgraphs?
                       </v-card-text>
 
                       <v-card-actions>
@@ -207,7 +207,7 @@
                   <template v-slot:default="{ isActive }">
                     <v-card title="Remove Offchain Subgraph">
                       <v-card-text>
-                        Remove {{ item.displayName }} ({{  item.currentVersion.subgraphDeployment.ipfsHash }}) from list of offchain sync subgraphs?
+                        Remove {{ item.metadata.displayName }} ({{  item.currentVersion.subgraphDeployment.ipfsHash }}) from list of offchain sync subgraphs?
                       </v-card-text>
 
                       <v-card-actions>
@@ -277,7 +277,7 @@
       <span :timestamp="item.currentVersion.subgraphDeployment.createdAt">{{ moment(item.currentVersion.subgraphDeployment.createdAt + "000", "x").format("MMM D, YYYY HH:mm") }}</span>
     </template>
     <template v-slot:item.proportion="{ item }">
-      {{ numeral(item.proportion*100).format('0,0.000') }}%
+      {{ numeral(item.proportion).format('0,0.0000') }}
     </template>
     <template v-slot:item.apr="{ item }">
       {{ numeral(item.apr).format('0,0.00') }}%
@@ -306,8 +306,8 @@
     <template v-slot:item.currentVersion.subgraphDeployment.stakedTokens="{ item }">
       {{ numeral(web3.utils.fromWei(item.currentVersion.subgraphDeployment.stakedTokens.toString())).format('0,0') }} GRT
     </template>
-    <template v-slot:item.currentVersion.subgraphDeployment.network.id="{ item }">
-      {{ item.currentVersion.subgraphDeployment.network ? item.currentVersion.subgraphDeployment.network.id : "null" }}
+    <template v-slot:item.currentVersion.subgraphDeployment.manifest.network="{ item }">
+      {{ item.currentVersion.subgraphDeployment.manifest.network ? item.currentVersion.subgraphDeployment.manifest.network : "null" }}
     </template> 
   </v-data-table>
   <v-btn
@@ -456,8 +456,8 @@ function customSort(items, index, isDesc) {
 
   const headers = ref([
     { title: 'Status', key: 'deploymentStatus.blocksBehindChainhead', align: 'start' },
-    { title: 'Name', key: 'displayName' },
-    { title: 'Network', key: 'currentVersion.subgraphDeployment.network.id'},
+    { title: 'Name', key: 'metadata.displayName' },
+    { title: 'Network', key: 'currentVersion.subgraphDeployment.manifest.network'},
     { title: 'Created', key: 'currentVersion.subgraphDeployment.createdAt' },
     { title: 'Current APR', key: 'apr'},
     { title: 'New APR', key: 'newApr'},
