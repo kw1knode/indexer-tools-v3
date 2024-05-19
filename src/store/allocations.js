@@ -103,6 +103,16 @@ export const useAllocationStore = defineStore('allocationStore', {
 
       return allocations;
     },
+    getSelectedFilteredAllocations: (state) => {
+      let allocations = [];
+      for(let i = 0; i < state.selected.length; i++){
+        let allocation = state.getFilteredAllocations.find((e) => e.id == state.selected[i]);
+        allocations[i] = {
+          ...allocation,
+        }
+      }
+      return allocations;
+    },
     getAllocations: (state) => {
       let allocations = [];
       for(let i = 0; i < state.allocations.length; i++){
@@ -268,7 +278,7 @@ export const useAllocationStore = defineStore('allocationStore', {
       let totalRewardsPerYear = new BigNumber(0);
       if(state.allocations.length > 0){
         for(const i in state.allocations){
-          if(!new BigNumber(state.allocations[i].allocatedTokens).isEqualTo(new BigNumber(0)) && !new BigNumber(state.allocations[i].subgraphDeployment.signalledTokens).isEqualTo(new BigNumber(0))){
+          if(!new BigNumber(state.allocations[i].allocatedTokens).isEqualTo(new BigNumber(0)) && !new BigNumber(state.allocations[i].subgraphDeployment.signalledTokens).isEqualTo(new BigNumber(0)) && !state.allocations[i].subgraphDeployment.deniedAt){
             totalRewardsPerYear = totalRewardsPerYear.plus(
                 new BigNumber(state.allocations[i].subgraphDeployment.signalledTokens)
                     .dividedBy(networkStore.getTotalTokensSignalled)
@@ -290,14 +300,17 @@ export const useAllocationStore = defineStore('allocationStore', {
       if(state.selected.length > 0){
         for(const i in state.selected){
           let allocation = state.allocations.find((e) => e.id == state.selected[i]);
-          totalRewardsPerYear = totalRewardsPerYear.plus(
+          if(!allocation.subgraphDeployment.deniedAt){
+            totalRewardsPerYear = totalRewardsPerYear.plus(
               new BigNumber(allocation.subgraphDeployment.signalledTokens)
                   .dividedBy(networkStore.getTotalTokensSignalled)
                   .multipliedBy(networkStore.getIssuancePerYear)
                   .multipliedBy(
                       new BigNumber(allocation.allocatedTokens).dividedBy(allocation.subgraphDeployment.stakedTokens)
                   )
-          );
+            );
+          }
+          
         }
       }
       return totalRewardsPerYear;
@@ -315,18 +328,18 @@ export const useAllocationStore = defineStore('allocationStore', {
       return state.calculatedClosingRewardsPerYear.dividedBy(state.calculatedClosingStake);
     },
     pendingRewardsCutSum: (state) => {
-      return state.getPendingRewardsCuts.reduce((sum, cur) => cur.pendingRewardsCut ? sum.plus(cur.pendingRewardsCut): sum, new BigNumber(0));
+      return state.getAllocations.reduce((sum, cur) => cur.pendingRewardsCut && !cur.subgraphDeployment.deniedAt ? sum.plus(cur.pendingRewardsCut): sum, new BigNumber(0));
     },
     pendingRewardsSum: (state) => {
       console.log("PENDING REWARDS");
       console.log(state.getPendingRewards);
-      return state.getPendingRewards.reduce((sum, cur) => cur.pendingRewards.loaded ? sum.plus(cur.pendingRewards.value) : sum, new BigNumber(0));
+      return state.getAllocations.reduce((sum, cur) => cur.pendingRewards.loaded && !cur.subgraphDeployment.deniedAt ? sum.plus(cur.pendingRewards.value) : sum, new BigNumber(0));
     },
     dailyRewardsCutSum: (state) => {
-      return state.getDailyRewardsCuts.reduce((sum, cur) => sum.plus(cur.dailyRewardsCut), new BigNumber(0));
+      return state.getAllocations.reduce((sum, cur) => cur.subgraphDeployment.deniedAt ? sum : sum.plus(cur.dailyRewardsCut), new BigNumber(0));
     },
     dailyRewardsSum: (state) => {
-      return state.getDailyRewards.reduce((sum, cur) => sum.plus(cur.dailyRewards), new BigNumber(0));
+      return state.getAllocations.reduce((sum, cur) => cur.subgraphDeployment.deniedAt ? sum : sum.plus(cur.dailyRewards), new BigNumber(0));
     },
   },
   actions: {
@@ -377,7 +390,7 @@ export const useAllocationStore = defineStore('allocationStore', {
       console.log("Fetch " + skip);
       return chainStore.getNetworkSubgraphClient.query({
         query: gql`query allocations($indexer: String!, $skip: Int!){
-          allocations(where: {activeForIndexer_contains_nocase: $indexer, status: Active}, orderBy:createdAtBlockNumber, orderDirection:desc, skip: $skip){
+          allocations(first: 1000, where: {activeForIndexer_contains_nocase: $indexer, status: Active}, orderBy:createdAtBlockNumber, orderDirection:desc, skip: $skip){
             id
             activeForIndexer{
               id
@@ -419,7 +432,7 @@ export const useAllocationStore = defineStore('allocationStore', {
       })
       .then(({ data, networkStatus }) => {
         console.log(data);
-        if(networkStatus == 7 && data.allocations.length == 100){
+        if(networkStatus == 7 && data.allocations.length == 1000){
           return this.fetch(skip + data.allocations.length)
           .then((data1) => {
             let concatData = {};

@@ -19,6 +19,7 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
     newAllocations: {},
     minAllocation: 0,
     minAllocation0Signal: 0,
+    customPOIs: {},
   }),
   getters: {
     getSelected: () => subgraphStore.selected,
@@ -131,32 +132,34 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
 
       if(state.getSelectedSubgraphs.length > 0) {
         for (const i in state.getSelectedSubgraphs) {
-          let newAllocationSize = state.newAllocations[state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] ? state.newAllocations[state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] : 0;
+          if(!state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.deniedAt){
+            let newAllocationSize = state.newAllocations[state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] ? state.newAllocations[state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] : 0;
 
-          if (newAllocationSize) {
-            let closingAllocation = allocationStore.getSelectedAllocations.find(e => {
-              return e.subgraphDeployment.ipfsHash === state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash;
-            });
+            if (newAllocationSize) {
+              let closingAllocation = allocationStore.getSelectedAllocations.find(e => {
+                return e.subgraphDeployment.ipfsHash === state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash;
+              });
 
-            if (closingAllocation) {
-              totalRewardsPerYear = totalRewardsPerYear.plus(
-                  new BigNumber(state.getSelectedSubgraphs[i].currentSignalledTokens)
-                      .dividedBy(networkStore.getTotalTokensSignalled)
-                      .multipliedBy(networkStore.getIssuancePerYear)
-                      .multipliedBy(newAllocationSize)
-                      .dividedBy(new BigNumber(state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.stakedTokens).minus(closingAllocation.allocatedTokens).plus(new BigNumber(newAllocationSize).multipliedBy("1000000000000000000")))
-              );
-            } else {
-              totalRewardsPerYear = totalRewardsPerYear.plus(
-                  new BigNumber(state.getSelectedSubgraphs[i].currentSignalledTokens)
-                      .dividedBy(networkStore.getTotalTokensSignalled)
-                      .multipliedBy(networkStore.getIssuancePerYear)
-                      .multipliedBy(newAllocationSize)
-                      .dividedBy(new BigNumber(state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.stakedTokens).plus(new BigNumber(newAllocationSize).multipliedBy("1000000000000000000")))
-              );
+              if (closingAllocation) {
+                totalRewardsPerYear = totalRewardsPerYear.plus(
+                    new BigNumber(state.getSelectedSubgraphs[i].currentSignalledTokens)
+                        .dividedBy(networkStore.getTotalTokensSignalled)
+                        .multipliedBy(networkStore.getIssuancePerYear)
+                        .multipliedBy(newAllocationSize)
+                        .dividedBy(new BigNumber(state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.stakedTokens).minus(closingAllocation.allocatedTokens).plus(new BigNumber(newAllocationSize).multipliedBy("1000000000000000000")))
+                );
+              } else {
+                totalRewardsPerYear = totalRewardsPerYear.plus(
+                    new BigNumber(state.getSelectedSubgraphs[i].currentSignalledTokens)
+                        .dividedBy(networkStore.getTotalTokensSignalled)
+                        .multipliedBy(networkStore.getIssuancePerYear)
+                        .multipliedBy(newAllocationSize)
+                        .dividedBy(new BigNumber(state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.stakedTokens).plus(new BigNumber(newAllocationSize).multipliedBy("1000000000000000000")))
+                );
+
+              }
 
             }
-
           }
         }
       }
@@ -186,20 +189,33 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
       let unallocate = "";
       let reallocate = "";
       let allocate = "";
+      let reallocate2 = "";
       let skip = [];
       for(const i in allocationStore.getSelectedAllocations){
+        let customPOI = "";
+        if(state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]){
+          if(state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash] == "0x0"){
+            customPOI = "0x0000000000000000000000000000000000000000 true ";
+          } else{
+            customPOI = `${state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]} true `;
+          }
+        }
         if(Object.keys(state.newAllocations).includes(allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash)){
-          reallocate += `graph indexer actions queue reallocate ${allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash} ${allocationStore.getSelectedAllocations[i].id} ${state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]} --network ${chainStore.getActiveChain.id}\n`
+          if(BigNumber(allocationStore.getSelectedAllocations[i].allocatedTokens).dividedBy(10**18) > BigNumber(state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash])){
+            reallocate += `graph indexer actions queue reallocate ${allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash} ${allocationStore.getSelectedAllocations[i].id} ${state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]} ${customPOI}--network ${chainStore.getActiveChain.id}\n`;
+          } else{
+            reallocate2 += `graph indexer actions queue reallocate ${allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash} ${allocationStore.getSelectedAllocations[i].id} ${state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]} ${customPOI}--network ${chainStore.getActiveChain.id}\n`;
+          }
           skip.push(allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash);
         }else{
-          unallocate += `graph indexer actions queue unallocate ${allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash} ${allocationStore.getSelectedAllocations[i].id} --network ${chainStore.getActiveChain.id}\n`
+          unallocate += `graph indexer actions queue unallocate ${allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash} ${allocationStore.getSelectedAllocations[i].id} ${customPOI}--network ${chainStore.getActiveChain.id}\n`
         }
       }
       for(const i in state.getSelectedS){
         if(state.newAllocations[state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash] > 0 && !skip.includes(state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash))
           allocate += `graph indexer actions queue allocate ${state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash} ${state.newAllocations[state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash]} --network ${chainStore.getActiveChain.id}\n`
       }
-      return `${unallocate}${reallocate}${allocate}`;
+      return `${unallocate}${reallocate}${allocate}${reallocate2}`;
     },
     actionsQueueBuildAPIObject: (state) => {
       let unallocate = [];
@@ -207,21 +223,44 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
       let allocate = [];
       let skip = [];
       for(const i in allocationStore.getSelectedAllocations){
+        let allo = {};
         if(Object.keys(state.newAllocations).includes(allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash)){
-          reallocate.push({
-            status: 'queued',
-            type: 'reallocate',
-            deploymentID: allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash,
-            allocationID: allocationStore.getSelectedAllocations[i].id,
-            amount: state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash].toString(),
-            protocolNetwork: chainStore.getActiveChain.id,
-            source: 'Indexer Tools - Agent Connect',
-            reason: 'Allocation Wizard',
-            priority: 2,
-          });
+          //console.log("CHECK");
+          //console.log(BigNumber(allocationStore.getSelectedAllocations[i].allocatedTokens).dividedBy(10**18).toString());
+          //console.log(state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]);
+          if(BigNumber(allocationStore.getSelectedAllocations[i].allocatedTokens).dividedBy(10**18) > BigNumber(state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash])){
+            allo = {
+              status: 'queued',
+              type: 'reallocate',
+              deploymentID: allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash,
+              allocationID: allocationStore.getSelectedAllocations[i].id,
+              amount: state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash].toString(),
+              protocolNetwork: chainStore.getActiveChain.id,
+              source: 'Indexer Tools - Agent Connect',
+              reason: 'Allocation Wizard',
+              priority: 1,
+            };
+          } else{
+            allo = {
+              status: 'queued',
+              type: 'reallocate',
+              deploymentID: allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash,
+              allocationID: allocationStore.getSelectedAllocations[i].id,
+              amount: state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash].toString(),
+              protocolNetwork: chainStore.getActiveChain.id,
+              source: 'Indexer Tools - Agent Connect',
+              reason: 'Allocation Wizard',
+              priority: 2,
+            };
+          }
+          if(state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]){
+            allo.poi = state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]
+            allo.force = true;
+          }
+          reallocate.push(allo);
           skip.push(allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash);
         }else{
-          unallocate.push({
+          allo = {
             status: 'queued',
             type: 'unallocate',
             deploymentID: allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash,
@@ -230,7 +269,16 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
             source: 'Indexer Tools - Agent Connect',
             reason: 'Allocation Wizard',
             priority: 1,
-          });
+          };
+          if(state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]){
+            if(state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash] == "0x0"){
+              allo.poi = "0x0000000000000000000000000000000000000000";
+            } else{
+              allo.poi = state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]
+            }
+            allo.force = true;
+          }
+          unallocate.push(allo);
         }
       }
       for(const i in state.getSelectedS){
@@ -243,7 +291,7 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
             protocolNetwork: chainStore.getActiveChain.id,
             source: 'Indexer Tools - Agent Connect',
             reason: 'Allocation Wizard',
-            priority: 3,
+            priority: 2,
           });
         }
           
@@ -262,13 +310,13 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
     },
     async setMinimums(){
       for(let i = 0; i < this.getSelectedSubgraphs.length; i++){
-        if(this.getSelectedSubgraphs[i].currentSignalledTokens > 0 && this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] < this.minAllocation)
+        if(this.getSelectedSubgraphs[i].currentSignalledTokens > 0 && !this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.deniedAt && this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] < this.minAllocation)
           this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] = this.minAllocation;
       }
     },
     async setMinimums0Signal(){
       for(let i = 0; i < this.getSelectedSubgraphs.length; i++){
-        if(this.getSelectedSubgraphs[i].currentSignalledTokens == 0 && this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] < this.minAllocation0Signal)
+        if((this.getSelectedSubgraphs[i].currentSignalledTokens == 0 || this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.deniedAt) && this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] < this.minAllocation0Signal)
           this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] = this.minAllocation0Signal;
       }
     },

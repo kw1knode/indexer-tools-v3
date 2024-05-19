@@ -20,7 +20,8 @@ export const useSubgraphSettingStore = defineStore('subgraphSetting', {
       rpc: {
         mainnet: "",
         arbitrum: "",
-        goerli: "",
+        sepolia: "",
+        arbitrumSepolia: "",
       },
       hideCurrentlyAllocated: false,
     },

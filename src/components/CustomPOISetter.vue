@@ -1,28 +1,19 @@
 <template>
   <v-data-table
       :headers="headers"
-      :items="allocationStore.getFilteredAllocations"
-      item-selectable="subgraphDeployment.ipfsHash"
+      :items="allocationStore.getSelectedFilteredAllocations"
       class="elevation-1"
       :custom-sort="customSort"
       loading-text="Loading... Please wait"
       mobile-breakpoint="0"
-      :show-select="selectable"
-      v-model="selected"
       v-model:sort-by="tableSettingsStore.allocationSettings.sortBy"
       v-model:loading="allocationStore.loading"
       v-model:items-per-page="tableSettingsStore.allocationSettings.itemsPerPage"
       hover
+      show-expand
+      :expanded="allocationStore.selected"
+      :sort-by="[{ key: 'status', order: 'desc' }]"
   >
-    <template v-slot:top>
-      <v-select
-          v-model="subgraphSettingsStore.settings.statusFilter"
-          :items="[{title:'No Filter', value:'none'},{title:'All Reported Status', value:'all'},{title:'Closable', value:'closable'},{title: 'Healthy/Synced', value:'healthy-synced'},{title:'Syncing', value:'syncing'},{title:'Failed', value:'failed'},{title:'Non-Deterministic', value:'non-deterministic'},{title:'Deterministic', value:'deterministic'}]"
-          label="Status Filter"
-          class="d-inline-block mx-4 mt-5"
-          style="min-width:13rem;max-width: 15rem;"
-      ></v-select>
-    </template>
     <template v-slot:item.deploymentStatus.blocksBehindChainhead="{ item }">
       <v-menu
         min-width="200px"
@@ -236,40 +227,29 @@
         </v-tooltip>
       </div>
     </template>
-    <template v-slot:body.append>
+    <template v-slot:expanded-row="{ item }">
       <tr>
-        <td style="font-size: 11px"><strong>Totals</strong></td>
-        <td v-if="selectable"></td>
-        <td><strong>{{ allocationStore.getAllocations.length }} allocations</strong>&nbsp;&nbsp;</td>
         <td></td>
-        <td></td>
-        <td></td>
-        <td><strong>{{ numeral(allocationStore.avgAPR).format('0,0.00%') }}</strong>&nbsp;&nbsp;</td>
-        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.dailyRewardsSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
-        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.dailyRewardsCutSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
-        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.pendingRewardsSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
-        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.pendingRewardsCutSum))).format('0,0') }} GRT</strong></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
+        <td>
+          <v-text-field 
+              class="mt-4 pt-0"
+              style="width: 250px"
+              v-model="customPOIs[item.subgraphDeployment.ipfsHash]"
+              hint="Manual POI"
+          ></v-text-field>
+        </td>
+        <td>
+          <v-btn 
+           v-if="accountStore.getActiveAccount.poiQuery && item.deploymentStatus?.fatalError" 
+           @click="queryPOI(item.subgraphDeployment.ipfsHash, item.deploymentStatus?.fatalError?.block?.number, item.deploymentStatus?.fatalError?.block?.hash)"
+          >
+            Query POI
+          </v-btn>
+        </td>
       </tr>
+      
     </template>
   </v-data-table>
-  <div>
-      <v-btn
-        text
-        class="my-5 mx-3"
-      >
-        <download-csv
-          :data   = "allocationStore.getAllocations" 
-          :csv-title="'allocations'">
-          Download Data
-        </download-csv>
-      </v-btn>
-  </div>
 </template>
 
 <script setup>
@@ -283,15 +263,19 @@ import { storeToRefs } from "pinia";
 import { useSubgraphSettingStore } from "@/store/subgraphSettings";
 import { useChainStore } from "@/store/chains";
 import { useTableSettingStore } from "@/store/tableSettings";
+import { useNewAllocationSetterStore } from "@/store/newAllocationSetter";
 
 const allocationStore = useAllocationStore();
 const accountStore = useAccountStore();
 const subgraphSettingsStore = useSubgraphSettingStore();
 const tableSettingsStore = useTableSettingStore();
+const newAllocationSetterStore = useNewAllocationSetterStore();
 const chainStore = useChainStore();
 const { getActiveAccount } = storeToRefs(accountStore);
 
 const { selected, loaded } = storeToRefs(allocationStore);
+
+const { customPOIs } = storeToRefs(newAllocationSetterStore);
 
 defineProps({
   selectable: {
@@ -313,14 +297,7 @@ const headers = ref([
     { title: 'Name', key: 'subgraphDeployment.versions[0].subgraph.metadata.displayName' },
     { title: 'Allocated', key: 'allocatedTokens'},
     { title: 'Created', key: 'createdAt' },
-    { title: 'Allocation Duration', key: 'activeDuration'},
-    { title: 'Current APR', key: 'apr'},
-    { title: 'Est Daily Rewards', key: 'dailyRewards'},
-    { title: 'Est Daily Rewards (After Cut)', key: 'dailyRewardsCut'},
-    { title: 'Pending Rewards', key: 'pendingRewards.value'},
-    { title: 'Pending Rewards (After Cut)', key: 'pendingRewardsCut'},
     { title: 'Current Signal', key: 'subgraphDeployment.signalledTokens'},
-    { title: 'Current Proportion', key: 'proportion'},
     { title: 'Current Allocations', key: 'subgraphDeployment.stakedTokens'},
     { title: 'Total Query Fees', key: 'subgraphDeployment.queryFeesAmount'},
     { title: 'Total Indexing Rewards', key: 'subgraphDeployment.indexingRewardAmount'},
@@ -328,65 +305,15 @@ const headers = ref([
     { title: 'Allocation ID', key: 'id', sortable: false, width: "100px" },
   ]);
 
-  watch(loaded, (loaded) => {
-    if(loaded == true && subgraphSettingsStore.settings.automaticIndexingRewards && subgraphSettingsStore.settings.rpc[chainStore.getChainID] != '')
-      allocationStore.fetchAllPendingRewards();
-  })
-
-  allocationStore.init();
-
-  watch(getActiveAccount,  async (newAccount, oldAccount) => {
-    console.log(newAccount);
-    console.log(oldAccount);
-    allocationStore.loaded = false;
-    allocationStore.loading = false;
-    if(newAccount.address != oldAccount.address || newAccount.chain != oldAccount.chain)
-      allocationStore.fetchData();
-  });
-
-  function customSort(items, index, isDesc) {
-    items.sort((a, b) => {
-      if (index[0] == 'currentVersion.subgraphDeployment.createdAt'
-          || index[0] == 'currentSignalledTokens'
-          || index[0] == 'currentVersion.subgraphDeployment.stakedTokens'
-          || index[0] == 'currentVersion.subgraphDeployment.indexingRewardAmount'
-          || index[0] == 'currentVersion.subgraphDeployment.queryFeesAmount'
-          || index[0] == 'proportion'
-          || index[0] == 'apr'
-          || index[0] == 'newApr'
-          || index[0] == 'dailyRewards'
-          || index[0] == 'dailyRewardsCut'
-          || index[0] == 'maxAllo'
-      ) {
-        if (!isDesc[0]) {
-          return t(a, index[0]).safeObject - t(b, index[0]).safeObject;
-        } else {
-          return t(b, index[0]).safeObject - t(a, index[0]).safeObject;
-        }
-      }else if(index[0] == 'pendingRewards' || index[0] == 'pendingRewardsCut'){
-        console.log(t(a, index[0]).safeObject);
-        console.log(t(b, index[0]).safeObject);
-        if(!isDesc[0]){
-          return t(a, index[0]).safeObject.value - t(b, index[0]).safeObject.value;
-        } else{
-          return t(b, index[0]).safeObject.value - t(a, index[0]).safeObject.value;
-        }
-      }else {
-        if(typeof t(a, index[0]) !== 'undefined'){
-          let objA = t(a, index[0]).safeObject;
-          let objB = t(b, index[0]).safeObject;
-          if(objA == null || objB == null)
-            return objA != null && !isDesc[0];
-
-          if (!isDesc[0]) {
-            return objA.toString().toLowerCase().localeCompare(objB.toString().toLowerCase());
-          } else {
-            return objB.toString().toLowerCase().localeCompare(objA.toString().toLowerCase());
-          }
-        }
-      }
-
+async function queryPOI(QmHash, block, blockHash){
+  fetch(accountStore.getActiveAccount.poiQueryEndpoint,  {
+      method: "POST",
+      headers: {"Content-type": "application/json"},
+      body: JSON.stringify({query: `{ proofOfIndexing(blockNumber: ${block}, blockHash: "${blockHash}", subgraph: "${QmHash}", indexer: "${accountStore.getActiveAccount.address}") }`}),
+    })
+    .then((res) => res.json())
+    .then((json) => {
+      newAllocationSetterStore.customPOIs[QmHash] = json.data.proofOfIndexing;
     });
-    return items;
-  }
+}
 </script>

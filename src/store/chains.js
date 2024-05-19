@@ -1,6 +1,6 @@
 // Utilities
 import { defineStore } from 'pinia'
-import { apolloClient, arbitrumApolloClient, goerliApolloClient } from "@/plugins/graphNetworkSubgraphClient";
+import { apolloClient, arbitrumApolloClient, sepoliaApolloClient, arbitrumSepoliaApolloClient } from "@/plugins/graphNetworkSubgraphClient";
 import { useSubgraphSettingStore } from './subgraphSettings';
 import Web3 from 'web3';
 import RewardsContractABI from '@/abis/rewardsContractABI.json';
@@ -14,13 +14,13 @@ let startChain;
 
 if(localStorage.accounts){
   const chain = JSON.parse(localStorage.accounts).find((a) => a.active).chain;
-  if(["mainnet", "arbitrum-one", "goerli"].includes(chain)){
+  if(["mainnet", "arbitrum-one", "sepolia", "arbitrum-sepolia"].includes(chain)){
     startChain = chain;
   }else{
-    startChain = "mainnet";
+    startChain = "arbitrum-one";
   }
 }else{
-  startChain = "mainnet"
+  startChain = "arbitrum-one"
 }
 export const useChainStore = defineStore('chainStore', {
   state: () => ({
@@ -48,15 +48,26 @@ export const useChainStore = defineStore('chainStore', {
       active: startChain == "arbitrum-one",
       },
       {
-      id: "goerli",
-      default_rpc: defaultsConfig.rpcGoerli,
-      block_explorer: "https://goerli.etherscan.io",
-      web3: new Web3(subgraphSettingStore.settings.rpc.goerli != '' ? subgraphSettingStore.settings.rpc.goerli : defaultsConfig.rpcGoerli),
-      rewardsContractAddress: "0x1246D7c4c903fDd6147d581010BD194102aD4ee2",
-      stakingContractAddress: "0x35e3Cb6B317690d662160d5d02A5b364578F62c9",
-      networkSubgraphClient: goerliApolloClient,
+      id: "sepolia",
+      default_rpc: defaultsConfig.rpcSepolia,
+      block_explorer: "https://sepolia.etherscan.io",
+      web3: new Web3(subgraphSettingStore.settings.rpc.sepolia != '' ? subgraphSettingStore.settings.rpc.sepolia : defaultsConfig.rpcSepolia),
+      rewardsContractAddress: "0x9a86322dEa5136C74ee6d1b06F4Ab9A6bB2724E0",
+      stakingContractAddress: "0x14e9B07Dc56A0B03ac8A58453B5cCCB289d6ec90",
+      networkSubgraphClient: sepoliaApolloClient,
       blocksPerDay: 43200,
-      active: startChain == "goerli",
+      active: startChain == "sepolia",
+      },
+      {
+      id: "arbitrum-sepolia",
+      default_rpc: defaultsConfig.rpcArbitrumSepolia,
+      block_explorer: "https://sepolia.arbiscan.io",
+      web3: new Web3(subgraphSettingStore.settings.rpc.arbitrumSepolia != '' ? subgraphSettingStore.settings.rpc.arbitrumSepolia : defaultsConfig.rpcArbitrumSepolia),
+      rewardsContractAddress: "0x00b9d319E3D09E83c62f453B44354049Dd93a345",
+      stakingContractAddress: "0x865365C425f3A593Ffe698D9c4E6707D14d51e08",
+      networkSubgraphClient: arbitrumSepoliaApolloClient,
+      blocksPerDay: 43200,
+      active: startChain == "arbitrum-sepolia",
       },
     ],
   }),
