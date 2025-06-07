@@ -19,18 +19,44 @@
   </v-snackbar>
   <h3 v-if="!accountStore.getAgentConnectStatus" class="mx-3 my-5">Set Agent Conenct settings in account settings.</h3>
   <br>
-  <div class="d-flex">
-    <v-btn text="Refresh actions" prepend-icon="mdi-refresh" @click="queryActions()" class="mx-5 my-6" v-if="accountStore.getAgentConnectStatus" stacked></v-btn>
-    <v-select
-        v-model="managerSettingStore.settings.statusFilter"
-        :items="[{title: 'Queued', value: 'queued'}, {title:'Approved', value: 'approved'}, {title: 'Pending', value: 'pending'}, {title: 'Success', value: 'success'}, {title: 'Failed', value: 'failed'}, {title: 'Canceled', value: 'canceled'}]"
-        label="Status Filter"
-        class="d-inline-block mx-5 my-6"
-        multiple
-        clearable
-        chips
-        style="min-width:150px;max-width:200px;"
-    ></v-select>
+  <div class="d-flex justify-space-between">
+    <div class="d-flex mr-auto flex-1-1-0 align-center">
+      <v-btn text="Refresh actions" prepend-icon="mdi-refresh" @click="queryActions()" class="mx-5 my-6" v-if="accountStore.getAgentConnectStatus" stacked></v-btn>
+      <v-select
+          v-model="managerSettingStore.settings.statusFilter"
+          :items="[{title: 'Queued', value: 'queued'}, {title:'Approved', value: 'approved'}, {title: 'Pending', value: 'pending'}, {title: 'Success', value: 'success'}, {title: 'Failed', value: 'failed'}, {title: 'Canceled', value: 'canceled'}]"
+          label="Status Filter"
+          class="d-inline-block mx-5 mt-6 flex-0-1"
+          multiple
+          clearable
+          chips
+          style="min-width: 150px;"
+      ></v-select>
+      <v-select
+          v-model="managerSettingStore.settings.selectStrategy"
+          :items="[{title: 'Page', value: 'page'}, {title:'All', value: 'all'}]"
+          label="Select Strategy"
+          class="d-inline-block mx-5 mt-6 flex-0-1"
+          style="min-width: 150px;"
+      ></v-select>
+    </div>
+    <div class="d-flex text-center flex-row ml-auto mr-auto align-stretch">
+      <v-card style="min-width: 150px" variant="tonal" class="mx-1">
+        <v-card-text>
+          Succeeded:
+          <h1 class="pt-2">{{ actionSuccesses }}</h1>
+        </v-card-text>
+      </v-card>
+      <v-card style="min-width: 150px" variant="tonal" class="mx-1">
+        <v-card-text>
+          Failed:
+          <h1 class="pt-2">{{ actionFailures }}</h1>
+        </v-card-text>
+      </v-card>
+    </div>
+    <div class="ml-auto flex-1-1-0">
+      &nbsp;
+    </div>
   </div>
   
   <v-data-table
@@ -42,6 +68,7 @@
       v-model="selected"
       :loading="loading"
       v-model:sort-by="sortBy"
+      :select-strategy="managerSettingStore.settings.selectStrategy"
   >
     <template v-slot:item.transaction="{ item }">
       <v-btn  
@@ -65,7 +92,7 @@
     </template>
     <template v-slot:item.metadata.image="{ item }">
       <v-badge
-          :model-value="item.currentVersion.subgraphDeployment && item.currentVersion.subgraphDeployment.deniedAt != '0'"
+          :model-value="item.deployment && item.deployment.deniedAt != '0'"
           bordered
           color="error"
           icon="mdi-currency-usd-off"
@@ -77,20 +104,20 @@
         </v-avatar>
       </v-badge>
     </template>
-    <template v-slot:item.currentVersion.subgraphDeployment.createdAt="{ item }">
-      <span :timestamp="item.currentVersion.subgraphDeployment.createdAt">{{ moment(item.currentVersion.subgraphDeployment.createdAt + "000", "x").format("MMM D, YYYY HH:mm") }}</span>
+    <template v-slot:item.deployment.createdAt="{ item }">
+      <span :timestamp="item.deployment.createdAt">{{ moment(item.deployment.createdAt + "000", "x").format("MMM D, YYYY HH:mm") }}</span>
     </template>
-    <template v-slot:item.currentSignalledTokens="{ item }">
-      {{ numeral(Web3.utils.fromWei(item.currentSignalledTokens)).format('0,0') }} GRT
+    <template v-slot:item.deployment.signalledTokens="{ item }">
+      {{ numeral(Web3.utils.fromWei(item.deployment.signalledTokens)).format('0,0') }} GRT
     </template>
-    <template v-slot:item.currentVersion.subgraphDeployment.indexingRewardAmount="{ item }">
-      {{ numeral(Web3.utils.fromWei(item.currentVersion.subgraphDeployment.indexingRewardAmount)).format('0,0') }} GRT
+    <template v-slot:item.deployment.indexingRewardAmount="{ item }">
+      {{ numeral(Web3.utils.fromWei(item.deployment.indexingRewardAmount)).format('0,0') }} GRT
     </template>
-    <template v-slot:item.currentVersion.subgraphDeployment.queryFeesAmount="{ item }">
-      {{ numeral(Web3.utils.fromWei(item.currentVersion.subgraphDeployment.queryFeesAmount)).format('0,0') }} GRT
+    <template v-slot:item.deployment.queryFeesAmount="{ item }">
+      {{ numeral(Web3.utils.fromWei(item.deployment.queryFeesAmount)).format('0,0') }} GRT
     </template>
-    <template v-slot:item.currentVersion.subgraphDeployment.stakedTokens="{ item }">
-      {{ numeral(Web3.utils.fromWei(item.currentVersion.subgraphDeployment.stakedTokens)).format('0,0') }} GRT
+    <template v-slot:item.deployment.stakedTokens="{ item }">
+      {{ numeral(Web3.utils.fromWei(item.deployment.stakedTokens)).format('0,0') }} GRT
     </template>
     <template v-slot:item.proportion="{ item }">
       {{ numeral(item.proportion).format('0,0.000%') }}
@@ -222,6 +249,23 @@
       </template>
     </v-dialog>
   </div>
+  <div class="d-flex my-10">
+    <v-expansion-panels>
+      <v-expansion-panel
+        :title="`Errors (${ actionErrors.length })`"
+      >
+        <v-expansion-panel-text>
+          <v-card
+            v-for="(error, i) in actionErrors"
+            :key="i"
+            class="my-1 px-5 py-2"
+          >
+            {{ error }}
+          </v-card>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+    </v-expansion-panels>
+  </div>
   
 </template>
 
@@ -254,6 +298,9 @@ const loading = ref(accountStore.getAgentConnectStatus);
 const snackbar = ref(false);
 const text = ref("");
 const sortBy = ref([{ key: 'id', order: 'desc' }]);
+const actionErrors = ref([]);
+const actionFailures = ref(0);
+const actionSuccesses = ref(0);
 const filteredActions = computed(() => {
   let fActions = actions.value;
   
@@ -300,17 +347,20 @@ function sendActionsToAgent(){
       }
     }`,
     variables: { actions: newAllocationSetterStore.actionsQueueBuildAPIObject }
+  }).catch((errors) => {
+    console.log("Action Queue Errors:")
+    for(let i in errors){
+      console.log(errors[i]);
+    }
+    actionErrors.value = actionErrors.value.concat(errors);
+    text.value = 'Indexer Agent error. Check errors for details.'
+    snackbar.value = true;
   }).then((data) => {
     console.log("AGENT CONNECT SEND ACTIONS DATA");
     console.log(data);
-    if(!data.data.errors){
-      text.value = `Queued ${data.data.queueActions.length} actions`;
-      snackbar.value = true;
-      queryActions();
-    }else{
-      text.value = 'Indexer Agent error. Check console for details.'
-      snackbar.value = true;
-    }
+    text.value = `Queued ${data.data.queueActions.length} actions`;
+    snackbar.value = true;
+    queryActions();
   });
 }
 
@@ -337,20 +387,27 @@ async function approveActions(){
       }
     }`,
     variables: { actionIDs: selected.value.map(String) },
-  }).then((data) => {
-    console.log(data);
-    if(!data.data.errors){
-      selected.value = [];
-      for(let i = 0; i < data.data.approveActions.length; i++){
-        let actionI = actions.value.findIndex((e) => e.id == data.data.approveActions[i].id);
-        actions.value[actionI] = data.data.approveActions[i];
-      }
-      text.value = `Approved ${data.data.approveActions.length} actions`
-      snackbar.value = true;
-    }else{
-      text.value = 'Indexer Agent error. Check console for details.'
-      snackbar.value = true;
+  }).catch((errors) => {
+    console.log("Approve Action Errors:")
+    for(let i in errors){
+      console.log(errors[i]);
     }
+    actionErrors.value = actionErrors.value.concat(errors);
+    text.value = 'Indexer Agent error. Check errors for details.'
+    snackbar.value = true;
+  }).then((data) => {
+    console.log("Approve Action Data")
+    console.log(data);
+    selected.value = [];
+    for(let i = 0; i < data.data.approveActions.length; i++)
+      actions.value = actions.value.map((e) => e.id == data.data.approveActions[i].id ? data.data.approveActions[i] : e);
+
+    text.value = `Approved ${data.data.approveActions.length} actions`
+    snackbar.value = true;
+    
+    if(data.data.approveActions.length == 0)
+      queryActions();
+
     return data.data.approveActions;
   });
 }
@@ -378,19 +435,26 @@ async function deleteActions(){
       }
     }`,
     variables: { actionIDs: selected.value.map(String) }
+  }).catch((errors) => {
+    console.log("Delete Action Errors:")
+    for(let i in errors){
+      console.log(errors[i]);
+    }
+    actionErrors.value = actionErrors.value.concat(errors);
+    text.value = 'Indexer Agent error. Check errors for details.'
+    snackbar.value = true;
   }).then((data) => {
     console.log(data);
-    if(!data.data.errors){
-      for(let i = 0; i < selected.value.length; i++){
-        actions.value = actions.value.filter((e) =>  e.id != selected.value[i]);
-      }
-      text.value = `Deleted ${data.data.deleteActions} actions`
-      snackbar.value = true;
-      selected.value = [];
-    }else{
-      text.value = 'Indexer Agent error. Check console for details.'
-      snackbar.value = true;
+    for(let i = 0; i < selected.value.length; i++){
+      actions.value = actions.value.filter((e) =>  e.id != selected.value[i]);
     }
+    text.value = `Deleted ${data.data.deleteActions} actions`
+    snackbar.value = true;
+    selected.value = [];
+
+    if(data.data.deleteActions.length == 0)
+      queryActions();
+
     return data;
   });
 }
@@ -418,20 +482,26 @@ async function cancelActions(){
       }
     }`,
     variables: { actionIDs: selected.value.map(String) }
+  }).catch((errors) => {
+    console.log("Cancel Action Errors:")
+    for(let i in errors){
+      console.log(errors[i]);
+    }
+    actionErrors.value = actionErrors.value.concat(errors);
+    text.value = 'Indexer Agent error. Check errors for details.'
+    snackbar.value = true;
   }).then((data) => {
     console.log(data);
-    if(!data.data.errors){
-      selected.value = [];
-      for(let i = 0; i < data.data.cancelActions.length; i++){
-        let actionI = actions.value.findIndex((e) => e.id == data.data.cancelActions[i].id);
-        actions.value[actionI] = data.data.cancelActions[i];
-      }
-      text.value = `Cancelled ${data.data.cancelActions.length} actions`
-      snackbar.value = true;
-    }else{
-      text.value = 'Indexer Agent error. Check console for details.'
-      snackbar.value = true;
-    }
+    selected.value = [];
+    for(let i = 0; i < data.data.cancelActions.length; i++)
+      actions.value = actions.value.map((e) => e.id == data.data.cancelActions[i].id ? data.data.cancelActions[i] : e);
+    
+    text.value = `Cancelled ${data.data.cancelActions.length} actions`
+    snackbar.value = true;
+
+    if(data.data.cancelActions.length == 0)
+      queryActions();
+
     return data.data.cancelActions;
   });
 }
@@ -487,40 +557,40 @@ async function executeApprovedActions(){
         failureReason
         priority
         protocolNetwork
+        status
       }
     }`,
+  }).catch((errors) => {
+    console.log("Execute Action Errors:")
+    for(let i in errors){
+      console.log(errors[i]);
+    }
+    actionErrors.value = actionErrors.value.concat(errors);
+    text.value = 'Indexer Agent error. Check errors for details.'
+    snackbar.value = true;
   }).then((data) => {
     console.log(data);
-    if(!data.data.errors){
-      selected.value = [];
-      for(let i = 0; i < data.data.executeApprovedActions.length; i++){
-        let actionI = actions.value.findIndex((e) => e.id == data.data.executeApprovedActions[i].id);
-        actions.value[actionI] = data.data.executeApprovedActions[i];
-        if(!data.data.executeApprovedActions[i].failureReason){
-          actions.value[actionI].status = 'success';
-        }else{
-          actions.value[actionI].status = 'failed';
-        }
-        
+    selected.value = [];
+    for(let i = 0; i < data.data.executeApprovedActions.length; i++){
+      actions.value = actions.value.map((e) => e.id == data.data.executeApprovedActions[i].id ? data.data.executeApprovedActions[i] : e);
+      if(data.data.executeApprovedActions[i].status == "failed"){
+        actionFailures.value += 1;
+      } else if(data.data.executeApprovedActions[i].status == "success"){
+        actionSuccesses.value += 1;
       }
-      text.value = `Executed ${data.data.executeApprovedActions.length} actions`
-      snackbar.value = true;
-    }else{
-      text.value = 'Indexer Agent error. Check console for details.'
-      snackbar.value = true;
     }
+    text.value = `Executed ${data.data.executeApprovedActions.length} actions`
+    snackbar.value = true;
+
+    if(data.data.executeApprovedActions.length == 0)
+      queryActions();
+
     return data.data.executeApprovedActions;
   });
 }
 
 const headers = ref([
         { title: 'ID', key: 'id'},
-        // {
-        //   title: 'Img',
-        //   sortable: false,
-        //   key: 'image',
-        // },
-        //{ title: 'Name', key: 'displayName' },
         { title: 'Status', key: 'status' },
         { title: 'Priority', key: 'priority'},
         { title: 'Type', key: 'type' },
@@ -530,55 +600,8 @@ const headers = ref([
         { title: 'Transaction', key: 'transaction' },
         { title: 'Failure Reason', key: 'failureReason' }, 
         { title: 'Source', key: 'source'},
-
-        
-        // { title: 'Current APR', key: 'apr'},
-        // { title: 'New APR', key: 'newApr'},
-        // { title: 'Est Daily Rewards (Before Cut)', key: 'dailyRewards'},
-        // { title: 'Est Daily Rewards (After Cut)', key: 'dailyRewardsCut'},
-        // { title: 'Current Proportion', key: 'proportion'},
-        // { title: 'New Proportion', key: 'newProportion'},
-
-
         { title: 'Deployment ID', key: 'deploymentID', sortable: false },
         { title: 'Allocation ID', key: 'allocationID', sortable: false },
       ]);
 
-function customSort(items, index, isDesc) {
-  items.sort((a, b) => {
-    if (index[0] == 'currentVersion.subgraphDeployment.createdAt'
-        || index[0] == 'currentSignalledTokens'
-        || index[0] == 'currentVersion.subgraphDeployment.stakedTokens'
-        || index[0] == 'currentVersion.subgraphDeployment.indexingRewardAmount'
-        || index[0] == 'currentVersion.subgraphDeployment.queryFeesAmount'
-        || index[0] == 'proportion'
-        || index[0] == 'apr'
-        || index[0] == 'newApr'
-        || index[0] == 'dailyRewards'
-        || index[0] == 'dailyRewardsCut'
-        || index[0] == 'maxAllo'
-    ) {
-      if (!isDesc[0]) {
-        return t(a, index[0]).safeObject - t(b, index[0]).safeObject;
-      } else {
-        return t(b, index[0]).safeObject - t(a, index[0]).safeObject;
-      }
-    } else {
-      if(typeof t(a, index[0]) !== 'undefined'){
-        let objA = t(a, index[0]).safeObject;
-        let objB = t(b, index[0]).safeObject;
-        if(objA == null || objB == null)
-          return objA != null && !isDesc[0];
-
-        if (!isDesc[0]) {
-          return objA.toString().toLowerCase().localeCompare(objB.toString().toLowerCase());
-        } else {
-          return objB.toString().toLowerCase().localeCompare(objA.toString().toLowerCase());
-        }
-      }
-    }
-
-  });
-  return items;
-}
 </script>

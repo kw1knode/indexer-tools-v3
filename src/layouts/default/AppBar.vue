@@ -58,20 +58,55 @@
       >
         Allocation Wizard
       </v-btn>
-      <v-btn
-          variant="text"
-          to="/actions-manager"
-          class="ml-2 mr-2"
-      >
-        Actions Manager
-      </v-btn>
-      <v-btn
-          variant="text"
-          to="/offchain-manager"
-          class="ml-2 mr-2"
-      >
-        Offchain Sync Manager
-      </v-btn>
+      <v-menu>
+        <template v-slot:activator="{ props }">
+          <v-btn
+            v-bind="props"
+          >
+            Managers
+          </v-btn>
+        </template>
+
+        <v-list>
+          <v-list-item to="/actions-manager">
+            <v-list-item-title>
+              Actions Manager
+            </v-list-item-title>
+          </v-list-item>
+          <v-list-item to="/offchain-manager">
+            <v-list-item-title>
+              Offchain Sync Manager
+            </v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+      <v-menu>
+        <template v-slot:activator="{ props }">
+          <v-btn
+            v-bind="props"
+          >
+            Dashboards
+          </v-btn>
+        </template>
+
+        <v-list>
+          <v-list-item to="/query-dashboard">
+            <v-list-item-title>
+              Query Dashboard
+            </v-list-item-title>
+          </v-list-item>
+          <v-list-item to="/qos-dashboard">
+            <v-list-item-title>
+              QoS Dashboard
+            </v-list-item-title>
+          </v-list-item>
+          <v-list-item to="/status-dashboard">
+            <v-list-item-title>
+              Deployment Status Dashboard
+            </v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
       <v-btn
           variant="text"
           to="/settings"
@@ -92,6 +127,9 @@
       <v-list-item title="Allocation Wizard" to="/wizard"></v-list-item>
       <v-list-item title="Actions Manager" to="/actions-manager"></v-list-item>
       <v-list-item title="Offchain Sync Manager" to="/offchain-manager"></v-list-item>
+      <v-list-item title="Query Fee Dashboard" to="/query-dashboard"></v-list-item>
+      <v-list-item title="QoS Dashboard" to="/qos-dashboard"></v-list-item>
+      <v-list-item title="Deployment Status Dashboard" to="/status-dashboard"></v-list-item>
       <v-list-item title="Settings" to="/settings"></v-list-item>
     </v-list>
   </v-navigation-drawer>

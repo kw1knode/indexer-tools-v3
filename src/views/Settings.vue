@@ -19,6 +19,12 @@
             </v-icon>
             General
           </v-tab>
+          <v-tab value="dashboards">
+            <v-icon start>
+              mdi-view-column
+            </v-icon>
+            Dashboards
+          </v-tab>
           <v-tab value="accounts">
             <v-icon start>
             mdi-account
@@ -79,6 +85,105 @@
             </v-card-text>
             </v-card>
           </v-window-item>
+          <v-window-item value="dashboards">    
+            <div class="d-inline-flex flex-wrap justify-space-around">
+              <v-card class="w-50 mx-5" style="min-width: 300px;max-width:500px">
+                <header class="d-flex align-center">
+                  <h2 class="mx-4">Allocation Columns</h2>
+                  <v-btn
+                    @click="subgraphSettingsStore.resetAllocationDefaultColumns()"
+                    class="ma-5"
+                    size="large"
+                  >
+                    Reset Columns
+                  </v-btn>
+                </header>       
+                <v-select
+                    v-model="subgraphSettingsStore.settings.selectedAllocationColumns"
+                    :items="allocationsDashboardColumns"
+                    label="Allocations Dashboard Columns"
+                    multiple
+                    class="d-inline-block mx-4"
+                    style="min-width:13rem;top: -5px"
+                    item-value="title"
+                    key="key"
+                    return-object
+                ></v-select>
+                <Sortable
+                  :list="subgraphSettingsStore.settings.selectedAllocationColumns"
+                  item-key="key"
+                  tag="div"
+                  @end="onAllocationsUpdate"
+                >
+                  <template #item="{element}">
+                    <v-list-item
+                      rounded="lg"
+                      class="draggable w-90 mx-3"
+                      :key="element.key"
+                      :title="element.title"
+                      density="compact"
+                    >
+                      <template v-slot:append>
+                        <v-icon 
+                          icon="mdi-close"
+                          @click="removeColumn('selectedAllocationColumns', element.key)"
+                        >
+
+                        </v-icon>
+                      </template>
+                    </v-list-item>
+                  </template>
+                </Sortable>
+              </v-card>
+              <v-card class="w-50" style="min-width: 300px;max-width:500px">
+                <header class="d-flex align-center">
+                  <h2 class="mx-4">Subgraph Columns</h2>
+                  <v-btn
+                    @click="subgraphSettingsStore.resetSubgraphDefaultColumns()"
+                    class="ma-5"
+                    size="large"
+                  >
+                    Reset Columns
+                  </v-btn>
+                </header>
+                <v-select
+                    v-model="subgraphSettingsStore.settings.selectedSubgraphColumns"
+                    :items="subgraphsDashboardColumns"
+                    label="Subgraphs Dashboard Columns"
+                    multiple
+                    class="d-inline-block mx-4"
+                    style="min-width:13rem;top: -5px"
+                    item-value="title"
+                    key="key"
+                    return-object
+                ></v-select>
+                <Sortable
+                  :list="subgraphSettingsStore.settings.selectedSubgraphColumns"
+                  item-key="key"
+                  tag="div"
+                  @end="onSubgraphsUpdate"
+                >
+                  <template #item="{element}">
+                      <v-list-item
+                        rounded="lg"
+                        class="draggable w-90 mx-3"
+                        :key="element.key"
+                        :title="element.title"
+                      >
+                      <template v-slot:append>
+                        <v-icon 
+                          icon="mdi-close"
+                          @click="removeColumn('selectedSubgraphColumns', element.key)"
+                        >
+
+                        </v-icon>
+                      </template>
+                      </v-list-item>
+                    </template>
+                </Sortable>
+              </v-card>
+            </div>
+          </v-window-item>
         </v-window>
       </div>
     </v-card>
@@ -92,6 +197,8 @@
   import { ref } from 'vue';
   import { storeToRefs } from 'pinia';
   import Web3 from 'web3';
+  import { allocationsDashboardColumns, subgraphsDashboardColumns } from '@/plugins/dashboardColumns';
+  import { Sortable } from "sortablejs-vue3";
   
   const subgraphSettingsStore = useSubgraphSettingStore();
   const subgraphSettings = storeToRefs(subgraphSettingsStore);
@@ -99,6 +206,10 @@
   const tab = ref("general");
   const mainnet_rpc_c = ref(subgraphSettingsStore.settings.rpc.mainnet != '');
   const arbitrum_rpc_c = ref(subgraphSettingsStore.settings.rpc.arbitrum != '');
+
+
+  function onSubgraphsUpdate(event) { console.log(event); subgraphSettingsStore.moveItemInSubgraphColumns(event.oldIndex, event.newIndex) }
+  function onAllocationsUpdate(event) { console.log(event); subgraphSettingsStore.moveItemInAllocationColumns(event.oldIndex, event.newIndex) }
 
   function updateMainnetRPC(rpc){
     if(rpc != '' && new Web3(rpc))
@@ -112,8 +223,20 @@
     else
       chainStore.chains[1].web3 = new Web3(chainStore.chains[1].default_rpc);
   }
+
+  function removeColumn(columns, key){
+    console.log("REMOVE COLUMN");
+    console.log(key);
+    subgraphSettingsStore.settings[columns] = subgraphSettingsStore.settings[columns].filter((e) => e.key != key);
+  }
   </script>
   
   <style scoped>
-  
+  .draggable {
+    /*background: #fff;*/
+    padding: 5px;
+    margin: 10px;
+    border: 1px solid #ccc;
+    cursor: move;
+  }
   </style>

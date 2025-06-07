@@ -1,115 +1,66 @@
 <template>
   <v-data-table
-      :headers="headers"
+      :headers="subgraphSettingsStore.settings.selectedAllocationColumns"
       :items="allocationStore.getFilteredAllocations"
       item-selectable="subgraphDeployment.ipfsHash"
       class="elevation-1"
-      :custom-sort="customSort"
       loading-text="Loading... Please wait"
       mobile-breakpoint="0"
       :show-select="selectable"
       v-model="selected"
       v-model:sort-by="tableSettingsStore.allocationSettings.sortBy"
-      v-model:loading="allocationStore.loading"
+      v-model:loading="allocationStore.loadingAll"
       v-model:items-per-page="tableSettingsStore.allocationSettings.itemsPerPage"
       hover
+      no-data-text="No data available<br>"
   >
+    <template v-slot:no-data>
+      <p class="mt-4">
+        No data available
+      </p>
+      <br>
+      <v-btn
+        rounded
+        variant="text"
+        @click="resetFilters()"
+        class="mb-4 mt-2"
+      >
+        Reset Filters
+      </v-btn>
+    </template>
     <template v-slot:top>
-      <v-select
-          v-model="subgraphSettingsStore.settings.statusFilter"
-          :items="[{title:'No Filter', value:'none'},{title:'All Reported Status', value:'all'},{title:'Closable', value:'closable'},{title: 'Healthy/Synced', value:'healthy-synced'},{title:'Syncing', value:'syncing'},{title:'Failed', value:'failed'},{title:'Non-Deterministic', value:'non-deterministic'},{title:'Deterministic', value:'deterministic'}]"
-          label="Status Filter"
-          class="d-inline-block mx-4 mt-5"
-          style="min-width:13rem;max-width: 15rem;"
-      ></v-select>
+      <div class="d-block">
+        <v-select
+            v-model="subgraphSettingsStore.settings.statusFilter"
+            :items="[{title:'No Filter', value:'none'},{title:'All Reported Status', value:'all'},{title:'Closable', value:'closable'},{title: 'Healthy/Synced', value:'healthy-synced'},{title:'Syncing', value:'syncing'},{title:'Failed', value:'failed'},{title:'Non-Deterministic', value:'non-deterministic'},{title:'Deterministic', value:'deterministic'}]"
+            label="Status Filter"
+            class="d-inline-block mx-4 mt-5"
+            style="min-width:13rem;max-width: 15rem;"
+        ></v-select>
+        <v-combobox
+          v-model="allocationStore.networkFilter"
+          :items="allocationStore.getSubgraphNetworks"
+          label="Subgraph Networks"
+          multiple
+          chips
+          clearable
+          class="d-inline-block mx-4"
+          style="min-width:13rem;max-width: 15rem;top: -5px"
+        ></v-combobox>
+        <v-checkbox
+          v-model="allocationStore.activateBlacklist"
+          label="Blacklist"
+          class="d-inline-block mr-3"
+        ></v-checkbox>
+        <v-checkbox
+          v-model="allocationStore.activateSynclist"
+          label="Synclist"
+          class="d-inline-block"
+        ></v-checkbox>
+      </div>
     </template>
     <template v-slot:item.deploymentStatus.blocksBehindChainhead="{ item }">
-      <v-menu
-        min-width="200px"
-        rounded
-      >
-        <template v-slot:activator="{ props }">
-          <v-btn
-            icon
-            v-bind="props"
-          >
-            <v-badge
-              v-if="item.subgraphDeployment.deniedAt"
-              bordered
-              color="error"
-              icon="mdi-currency-usd-off"
-              overlap
-              avatar
-            >
-              <v-avatar :color="item.deploymentStatus != undefined ? item.deploymentStatus.color : ''" size="34">
-                <v-avatar size="30">
-                  <v-img :src="item.subgraphDeployment.versions[0].subgraph.metadata.image" />
-                </v-avatar>
-              </v-avatar>
-            </v-badge>
-            <v-avatar v-if="!item.subgraphDeployment.deniedAt" :color="item.deploymentStatus != undefined ? item.deploymentStatus.color : ''" size="34">
-              <v-avatar size="30" v-if="!item.subgraphDeployment.deniedAt">
-                <v-img :src="item.subgraphDeployment.versions[0].subgraph.metadata.image" />
-              </v-avatar>
-            </v-avatar>
-          </v-btn>
-        </template>
-        <v-card>
-          <v-card-text>
-            <div class="mx-auto text-center">
-              <v-avatar
-                size="25"
-                :color="item.deploymentStatus?.color != undefined ? item.deploymentStatus.color : 'white'"
-              >
-                <v-icon :icon="item.deploymentStatus?.icon != undefined ? item.deploymentStatus.icon : 'mdi-close'"></v-icon>
-              </v-avatar>
-              <h4 class="mt-1">{{item.deploymentStatus?.health != undefined ? item.deploymentStatus.health.toUpperCase() : "Not Deployed"}}</h4>
-              <v-divider v-if="item.deploymentStatus?.health != undefined && item.deploymentStatus?.health == 'failed' && item.deploymentStatus?.fatalError" class="my-2"></v-divider>
-              <div v-if="item.deploymentStatus?.health != undefined && item.deploymentStatus?.health == 'failed' && item.deploymentStatus?.fatalError">
-                <p class="mt-2">
-                  Deterministic: <v-icon :icon="item.deploymentStatus.fatalError.deterministic ? 'mdi-check' : 'mdi-close'"></v-icon>
-                </p>
-                <v-btn
-                  rounded
-                  variant="text"
-                  @click="copyToClipboard(item.deploymentStatus?.fatalError?.block?.number)"
-                >
-                  Block: {{ item.deploymentStatus?.fatalError?.block?.number }}
-                </v-btn>
-                <br>
-                <v-btn
-                  rounded
-                  variant="text"
-                  @click="copyToClipboard(item.deploymentStatus?.fatalError?.block?.hash)"
-                >
-                  Hash: {{ item.deploymentStatus?.fatalError?.block?.hash.slice(0,6) }}...{{ item.deploymentStatus.fatalError.block.hash.slice(item.deploymentStatus.fatalError.block.hash.length-4,item.deploymentStatus.fatalError.block.hash.length) }}
-                </v-btn>
-                <br>
-                <v-btn
-                  rounded
-                  variant="text"
-                  @click="copyToClipboard(item.deploymentStatus?.fatalError?.message)"
-                >
-                  Copy Error
-                </v-btn>
-              </div>
-              
-              <v-divider class="my-2"></v-divider>
-              <p class="text-caption mt-2">
-                First block: {{ item.deploymentStatus?.chains?.[0]?.earliestBlock?.number != undefined ? item.deploymentStatus.chains[0].earliestBlock.number : '-' }}
-              </p>
-              <p class="text-caption">
-                Last block: {{ item.deploymentStatus?.chains?.[0]?.latestBlock?.number != undefined ? item.deploymentStatus.chains[0].latestBlock.number: '-' }}
-              </p>
-              <p class="text-caption mb-1">
-                Chainhead: {{ item.deploymentStatus?.chains?.[0]?.chainHeadBlock?.number != undefined ? item.deploymentStatus.chains[0].chainHeadBlock.number: '-' }}
-              </p>
-              {{ item.deploymentStatus?.chains?.[0]?.earliestBlock?.number != undefined && item.deploymentStatus?.chains?.[0]?.latestBlock?.number != undefined && item.deploymentStatus?.chains[0]?.chainHeadBlock?.number != undefined ? numeral((item.deploymentStatus.chains[0].latestBlock.number - item.deploymentStatus.chains[0].earliestBlock.number) / (item.deploymentStatus.chains[0].chainHeadBlock.number - item.deploymentStatus.chains[0].earliestBlock.number)).format('0.00%') : '-%' }}
-              <v-progress-linear class="mt-1" :model-value="item.deploymentStatus?.chains?.[0]?.earliestBlock?.number != undefined && item.deploymentStatus?.chains?.[0]?.latestBlock?.number != undefined && item.deploymentStatus?.chains[0]?.chainHeadBlock?.number != undefined ? (item.deploymentStatus.chains[0].latestBlock.number - item.deploymentStatus.chains[0].earliestBlock.number) / (item.deploymentStatus.chains[0].chainHeadBlock.number - item.deploymentStatus.chains[0].earliestBlock.number)*100 : 0"></v-progress-linear>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-menu>
+      <StatusDropdownVue :item='item' :subgraph='item.subgraphDeployment' :metadata='item.subgraphDeployment.versions[0].subgraph.metadata' />
     </template>
     <template v-slot:item.id="{ item }" style="width:100;max-width:100px;min-width:100px;overflow-x: scroll;">
       <p style="width:100;max-width:100px;min-width:100px;overflow-x: scroll;">{{ item.id }}</p>
@@ -236,105 +187,123 @@
         </v-tooltip>
       </div>
     </template>
+    <template v-slot:item.qos.query_count="{ item }">
+      {{ numeral(item.qos?.query_count).format('0,0') }} queries
+    </template>
+    <template v-slot:item.qos.total_query_fees="{ item }">
+      {{ numeral(item.qos?.total_query_fees).format('0,0') }} GRT
+    </template>
+    <template v-slot:item.qos.avg_indexer_latency_ms="{ item }">
+      {{ numeral(item.qos?.avg_indexer_latency_ms).format('0,0.0') }} ms
+    </template>
+    <template v-slot:item.qos.max_indexer_latency_ms="{ item }">
+      {{ numeral(item.qos?.max_indexer_latency_ms).format('0,0.0') }} ms
+    </template>
+    <template v-slot:item.qos.avg_query_fee="{ item }">
+      {{ numeral(item.qos?.avg_query_fee).format('0,0.00000') }} GRT
+    </template>
+    <template v-slot:item.qos.max_query_fee="{ item }">
+      {{ numeral(item.qos?.max_query_fee).format('0,0.00000') }} GRT
+    </template>
+    <template v-slot:item.qos.proportion_indexer_200_responses="{ item }">
+      {{ numeral(item.qos?.proportion_indexer_200_responses).format('0.00%') }}
+    </template>
+    <template v-slot:item.qos.avg_indexer_blocks_behind="{ item }">
+      {{ numeral(item.qos?.avg_indexer_blocks_behind).format('0,0') }} blocks
+    </template>
+    <template v-slot:item.qos.max_indexer_blocks_behind="{ item }">
+      {{ numeral(item.qos?.max_indexer_blocks_behind).format('0,0') }} blocks
+    </template>
+    <template v-slot:item.qos.num_indexer_200_responses="{ item }">
+      {{ numeral(item.qos?.num_indexer_200_responses).format('0,0') }} queries
+    </template>
+    <template v-slot:item.queryFees.query_count="{ item }">
+      {{ item.queryFees?.query_count ? numeral(item.queryFees.query_count).format('0,0') : '-' }}
+    </template>
+    <template v-slot:item.queryFees.total_query_fees="{ item }">
+      {{ item.queryFees?.total_query_fees ? numeral(item.queryFees.total_query_fees).format('0,0') : '-' }} GRT
+    </template>
+    <template v-slot:item.queryFees.avg_gateway_latency_ms="{ item }">
+      {{ numeral(item.queryFees?.avg_gateway_latency_ms).format('0,0.00') }} ms
+    </template>
+    <template v-slot:item.queryFees.avg_query_fee="{ item }">
+      {{ numeral(item.queryFees?.avg_query_fee).format('0,0.00000') }} GRT
+    </template>
+    <template v-slot:item.queryFees.gateway_query_success_rate="{ item }">
+      {{ numeral(item.queryFees?.gateway_query_success_rate).format('0.00%') }}
+    </template>
     <template v-slot:body.append>
-      <tr>
-        <td style="font-size: 11px"><strong>Totals</strong></td>
-        <td v-if="selectable"></td>
-        <td><strong>{{ allocationStore.getAllocations.length }} allocations</strong>&nbsp;&nbsp;</td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td><strong>{{ numeral(allocationStore.avgAPR).format('0,0.00%') }}</strong>&nbsp;&nbsp;</td>
-        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.dailyRewardsSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
-        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.dailyRewardsCutSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
-        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.pendingRewardsSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong></td>
-        <td><strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.pendingRewardsCutSum))).format('0,0') }} GRT</strong></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-      </tr>
+      <DashboardFooter :columns="subgraphSettingsStore.settings.selectedAllocationColumns" :selectable="selectable">
+        <template v-slot:selectable>
+          <strong style="font-size: 11px">Totals</strong>
+        </template>
+        <template v-slot:deploymentStatus.blocksBehindChainhead>
+          <strong style="font-size: 11px" v-if="!selectable">Totals</strong>
+        </template>
+        <template v-slot:subgraphDeployment.versions[0].subgraph.metadata.displayName>
+          <strong>{{ allocationStore.getAllocations.length }} allocations</strong>&nbsp;&nbsp;
+        </template>
+        <template v-slot:apr>
+          <strong>{{ numeral(allocationStore.avgAPR).format('0,0.00%') }}</strong>&nbsp;&nbsp;
+        </template>
+        <template v-slot:dailyRewards>
+          <strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.dailyRewardsSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong>
+        </template>
+        <template v-slot:dailyRewardsCut>
+          <strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.dailyRewardsCutSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong>
+        </template>
+        <template v-slot:pendingRewards.value>
+          <strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.pendingRewardsSum))).format('0,0') }} GRT&nbsp;&nbsp;</strong>
+        </template>
+        <template v-slot:pendingRewardsCut>
+          <strong>{{ numeral(Web3.utils.fromWei(Web3.utils.toBN(allocationStore.pendingRewardsCutSum))).format('0,0') }} GRT</strong>
+        </template>
+      </DashboardFooter>
     </template>
   </v-data-table>
-  <div>
-      <v-btn
-        text
-        class="my-5 mx-3"
-      >
-        <download-csv
-          :data   = "allocationStore.getAllocations" 
-          :csv-title="'allocations'">
-          Download Data
-        </download-csv>
-      </v-btn>
-  </div>
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
-import moment from "moment";
-import numeral from "numeral";
-import Web3 from "web3";
-import { useAllocationStore } from "@/store/allocations";
-import { useAccountStore } from "@/store/accounts";
-import { storeToRefs } from "pinia";
-import { useSubgraphSettingStore } from "@/store/subgraphSettings";
-import { useChainStore } from "@/store/chains";
-import { useTableSettingStore } from "@/store/tableSettings";
+  import { ref, watch } from "vue";
+  import moment from "moment";
+  import numeral from "numeral";
+  import Web3 from "web3";
+  import { useAllocationStore } from "@/store/allocations";
+  import { useAccountStore } from "@/store/accounts";
+  import { storeToRefs } from "pinia";
+  import { useSubgraphSettingStore } from "@/store/subgraphSettings";
+  import { useChainStore } from "@/store/chains";
+  import { useTableSettingStore } from "@/store/tableSettings";
+  import StatusDropdownVue from '@/components/StatusDropdown.vue';
+  import DashboardFooter from "@/components/DashboardFooter.vue";
 
-const allocationStore = useAllocationStore();
-const accountStore = useAccountStore();
-const subgraphSettingsStore = useSubgraphSettingStore();
-const tableSettingsStore = useTableSettingStore();
-const chainStore = useChainStore();
-const { getActiveAccount } = storeToRefs(accountStore);
+  const allocationStore = useAllocationStore();
+  const accountStore = useAccountStore();
+  const subgraphSettingsStore = useSubgraphSettingStore();
+  const tableSettingsStore = useTableSettingStore();
+  const chainStore = useChainStore();
+  const { getActiveAccount } = storeToRefs(accountStore);
 
-const { selected, loaded } = storeToRefs(allocationStore);
+  const { selected, loaded } = storeToRefs(allocationStore);
 
-defineProps({
-  selectable: {
-    type: Boolean,
-    default: false,
-  },
-})
-
-function copyToClipboard (copy) {
-  navigator.clipboard.writeText(copy)
-}
-
-const headers = ref([
-    {
-      title: 'Status',
-      align: 'start',
-      key: 'deploymentStatus.blocksBehindChainhead',
+  defineProps({
+    selectable: {
+      type: Boolean,
+      default: false,
     },
-    { title: 'Name', key: 'subgraphDeployment.versions[0].subgraph.metadata.displayName' },
-    { title: 'Allocated', key: 'allocatedTokens'},
-    { title: 'Created', key: 'createdAt' },
-    { title: 'Allocation Duration', key: 'activeDuration'},
-    { title: 'Current APR', key: 'apr'},
-    { title: 'Est Daily Rewards', key: 'dailyRewards'},
-    { title: 'Est Daily Rewards (After Cut)', key: 'dailyRewardsCut'},
-    { title: 'Pending Rewards', key: 'pendingRewards.value'},
-    { title: 'Pending Rewards (After Cut)', key: 'pendingRewardsCut'},
-    { title: 'Current Signal', key: 'subgraphDeployment.signalledTokens'},
-    { title: 'Current Proportion', key: 'proportion'},
-    { title: 'Current Allocations', key: 'subgraphDeployment.stakedTokens'},
-    { title: 'Total Query Fees', key: 'subgraphDeployment.queryFeesAmount'},
-    { title: 'Total Indexing Rewards', key: 'subgraphDeployment.indexingRewardAmount'},
-    { title: 'Deployment ID', key: 'subgraphDeployment.ipfsHash', sortable: false },
-    { title: 'Allocation ID', key: 'id', sortable: false, width: "100px" },
-  ]);
+  })
+
+  function resetFilters () {
+    subgraphSettingsStore.settings.statusFilter = "none";
+    allocationStore.networkFilter = [];
+    allocationStore.activateBlacklist = false;
+    allocationStore.activateSynclist = false;
+  }
 
   watch(loaded, (loaded) => {
     if(loaded == true && subgraphSettingsStore.settings.automaticIndexingRewards && subgraphSettingsStore.settings.rpc[chainStore.getChainID] != '')
       allocationStore.fetchAllPendingRewards();
   })
-
-  allocationStore.init();
-
   watch(getActiveAccount,  async (newAccount, oldAccount) => {
     console.log(newAccount);
     console.log(oldAccount);
@@ -344,49 +313,5 @@ const headers = ref([
       allocationStore.fetchData();
   });
 
-  function customSort(items, index, isDesc) {
-    items.sort((a, b) => {
-      if (index[0] == 'currentVersion.subgraphDeployment.createdAt'
-          || index[0] == 'currentSignalledTokens'
-          || index[0] == 'currentVersion.subgraphDeployment.stakedTokens'
-          || index[0] == 'currentVersion.subgraphDeployment.indexingRewardAmount'
-          || index[0] == 'currentVersion.subgraphDeployment.queryFeesAmount'
-          || index[0] == 'proportion'
-          || index[0] == 'apr'
-          || index[0] == 'newApr'
-          || index[0] == 'dailyRewards'
-          || index[0] == 'dailyRewardsCut'
-          || index[0] == 'maxAllo'
-      ) {
-        if (!isDesc[0]) {
-          return t(a, index[0]).safeObject - t(b, index[0]).safeObject;
-        } else {
-          return t(b, index[0]).safeObject - t(a, index[0]).safeObject;
-        }
-      }else if(index[0] == 'pendingRewards' || index[0] == 'pendingRewardsCut'){
-        console.log(t(a, index[0]).safeObject);
-        console.log(t(b, index[0]).safeObject);
-        if(!isDesc[0]){
-          return t(a, index[0]).safeObject.value - t(b, index[0]).safeObject.value;
-        } else{
-          return t(b, index[0]).safeObject.value - t(a, index[0]).safeObject.value;
-        }
-      }else {
-        if(typeof t(a, index[0]) !== 'undefined'){
-          let objA = t(a, index[0]).safeObject;
-          let objB = t(b, index[0]).safeObject;
-          if(objA == null || objB == null)
-            return objA != null && !isDesc[0];
-
-          if (!isDesc[0]) {
-            return objA.toString().toLowerCase().localeCompare(objB.toString().toLowerCase());
-          } else {
-            return objB.toString().toLowerCase().localeCompare(objA.toString().toLowerCase());
-          }
-        }
-      }
-
-    });
-    return items;
-  }
+  allocationStore.init();
 </script>

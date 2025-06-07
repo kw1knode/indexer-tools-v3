@@ -9,20 +9,23 @@ import BigNumber from 'bignumber.js';
 import { storeToRefs } from 'pinia';
 import { calculateApr, calculateReadableDuration, calculateAllocationDailyRewards, indexerCut } from '@/plugins/commonCalcs';
 import { useSubgraphSettingStore } from './subgraphSettings';
+import { useQosStore } from './qos';
+import { useQueryFeesStore } from './queryFees';
 
 
 const networkStore = useNetworkStore();
 const accountStore = useAccountStore();
 const chainStore = useChainStore();
 const deploymentStatusStore = useDeploymentStatusStore();
-const { getDeploymentStatuses } = storeToRefs(deploymentStatusStore);
 const subgraphSettingStore = useSubgraphSettingStore();
+const qosStore = useQosStore();
+const queryFeeStore = useQueryFeesStore();
 
 
 networkStore.init();
 accountStore.fetchData()
 .then(() => {
-  deploymentStatusStore.update();
+  deploymentStatusStore.init();
 });
 
 
@@ -33,71 +36,95 @@ export const useAllocationStore = defineStore('allocationStore', {
     selected: [],
     loaded: false,
     loading: false,
+    activateSynclist: false,
+    activateBlacklist: false,
+    networkFilter: [],
   }),
   getters: {
-    getDeploymentStatusesCall: () => {
-      return getDeploymentStatuses.value;
+    loadingAll: (state) => {
+      return state.loading || deploymentStatusStore.loading || qosStore.loading || queryFeeStore.loading
     },
     getFilteredAllocations: (state) => {
       let allocations = state.getAllocations;
       
       if(subgraphSettingStore.settings.statusFilter == 'all'){
         allocations = allocations.filter((i) => {
-          return deploymentStatusStore.getDeploymentStatuses.find((o) => o.subgraph == i.subgraphDeployment.ipfsHash) != undefined;
+          return deploymentStatusStore.getDeploymentStatusDict[i.subgraphDeployment.ipfsHash] != undefined;
         });
       }
 
       if(subgraphSettingStore.settings.statusFilter == 'closable'){
         allocations = allocations.filter((i) => {
-          let status = deploymentStatusStore.getDeploymentStatuses.find((o) => o.subgraph == i.subgraphDeployment.ipfsHash);
-            if(status != undefined && status.synced == true && (status.fatalError == undefined || status.fatalError.deterministic == true))
-              return true
+          const status = deploymentStatusStore.getDeploymentStatusDict[i.subgraphDeployment.ipfsHash];
+          if(status != undefined && status.synced == true && (status.fatalError == undefined || status.fatalError.deterministic == true))
+            return true
           return false;
         });
       }
 
       if(subgraphSettingStore.settings.statusFilter == 'healthy-synced'){
         allocations = allocations.filter((i) => {
-          let status = deploymentStatusStore.getDeploymentStatuses.find((o) => o.subgraph == i.subgraphDeployment.ipfsHash);
-            if(status != undefined && status.health == 'healthy' && status.synced == true)
-              return true
+          const status = deploymentStatusStore.getDeploymentStatusDict[i.subgraphDeployment.ipfsHash];
+          if(status != undefined && status.health == 'healthy' && status.synced == true)
+            return true
           return false;
         });
       }
 
       if(subgraphSettingStore.settings.statusFilter == 'syncing'){
         allocations = allocations.filter((i) => {
-          let status = deploymentStatusStore.getDeploymentStatuses.find((o) => o.subgraph == i.subgraphDeployment.ipfsHash);
-            if(status != undefined && status.health == 'healthy' && status.synced == false)
-              return true
+          const status = deploymentStatusStore.getDeploymentStatusDict[i.subgraphDeployment.ipfsHash];
+          if(status != undefined && status.health == 'healthy' && status.synced == false)
+            return true
           return false;
         });
       }
 
       if(subgraphSettingStore.settings.statusFilter == 'failed'){
         allocations = allocations.filter((i) => {
-          let status = deploymentStatusStore.getDeploymentStatuses.find((o) => o.subgraph == i.subgraphDeployment.ipfsHash);
-            if(status != undefined && status.health == 'failed')
-              return true
+          const status = deploymentStatusStore.getDeploymentStatusDict[i.subgraphDeployment.ipfsHash];
+          if(status != undefined && status.health == 'failed')
+            return true
           return false;
         });
       }
 
       if(subgraphSettingStore.settings.statusFilter == 'non-deterministic'){
         allocations = allocations.filter((i) => {
-          let status = deploymentStatusStore.getDeploymentStatuses.find((o) => o.subgraph == i.subgraphDeployment.ipfsHash);
-            if(status != undefined && status.health == 'failed' && status.fatalError != undefined && status.fatalError.deterministic == false)
-              return true
+          const status = deploymentStatusStore.getDeploymentStatusDict[i.subgraphDeployment.ipfsHash];
+          if(status != undefined && status.health == 'failed' && status.fatalError != undefined && status.fatalError.deterministic == false)
+            return true
           return false;
         });
       }
 
       if(subgraphSettingStore.settings.statusFilter == 'deterministic'){
         allocations = allocations.filter((i) => {
-          let status = deploymentStatusStore.getDeploymentStatuses.find((o) => o.subgraph == i.subgraphDeployment.ipfsHash);
-            if(status != undefined && status.health == 'failed' && status.fatalError != undefined && status.fatalError.deterministic == true)
-              return true
+          const status = deploymentStatusStore.getDeploymentStatusDict[i.subgraphDeployment.ipfsHash];
+          if(status != undefined && status.health == 'failed' && status.fatalError != undefined && status.fatalError.deterministic == true)
+            return true
           return false;
+        });
+      }
+
+      // Blacklist Filter
+      if(state.activateBlacklist) {
+        allocations = allocations.filter((i) => {
+          return !subgraphSettingStore.settings.subgraphBlacklist.includes(i.subgraphDeployment.ipfsHash);
+        });
+      }
+
+      // Synclist Filter
+      if(state.activateSynclist) {
+        allocations = allocations.filter((i) => {
+          return subgraphSettingStore.settings.subgraphSynclist.includes(i.subgraphDeployment.ipfsHash);
+        });
+      }
+
+      // Network Filter
+      if(state.networkFilter.length) {
+        allocations = allocations.filter((i) => {
+          return i.subgraphDeployment.manifest.network && state.networkFilter.includes(i.subgraphDeployment.manifest.network);
         });
       }
 
@@ -107,8 +134,10 @@ export const useAllocationStore = defineStore('allocationStore', {
       let allocations = [];
       for(let i = 0; i < state.selected.length; i++){
         let allocation = state.getFilteredAllocations.find((e) => e.id == state.selected[i]);
-        allocations[i] = {
-          ...allocation,
+        if(allocation){
+          allocations[i] = {
+            ...allocation,
+          }
         }
       }
       return allocations;
@@ -128,6 +157,8 @@ export const useAllocationStore = defineStore('allocationStore', {
           ...state.getPendingRewards[i],
           ...state.getPendingRewardsCuts[i],
           ...state.getDeploymentStatuses[i],
+          ...state.getQosDatas[i],
+          ...state.getQueryFeeDatas[i],
         };
       }
       console.log(state.allocations);
@@ -143,6 +174,30 @@ export const useAllocationStore = defineStore('allocationStore', {
         }
       }
       return allocations;
+    },
+    getQosDatas: (state) => {
+      let qosDatas = [];
+      for(let i = 0; i < state.allocations.length; i++){
+        const qos = qosStore.getQosDict[state.allocations[i].subgraphDeployment.ipfsHash];
+        if(qos){
+          qosDatas[i] = { qos: qos };
+        }else{
+          qosDatas[i] = { };
+        }
+      }
+      return qosDatas;
+    },
+    getQueryFeeDatas: (state) => {
+      let queryFeeDatas = [];
+      for(let i = 0; i < state.allocations.length; i++){
+        const queryFeeData = queryFeeStore.getQueryFeeDict[state.allocations[i].subgraphDeployment.ipfsHash];
+        if(queryFeeData){
+          queryFeeDatas[i] = { queryFees: queryFeeData }
+        }else{
+          queryFeeDatas[i] = { }
+        }
+      }
+      return queryFeeDatas;
     },
     getActiveDurations: (state) => {
       let activeDurations = [];
@@ -235,35 +290,19 @@ export const useAllocationStore = defineStore('allocationStore', {
     },
     getDeploymentStatuses: (state) => {
       let deploymentStatuses = [];
-      console.log("DEPLOY STATUS");
       for(let i = 0; i < state.allocations.length; i++){
-        let deploymentStatus = state.getDeploymentStatusesCall.find((e) => e.subgraph == state.allocations[i].subgraphDeployment.ipfsHash);
-        console.log("DEPLOYY STATUS");
-        console.log(deploymentStatus);
-        if(deploymentStatus != undefined){
-          if(deploymentStatus.health == 'failed' && deploymentStatus.fatalError && deploymentStatus.fatalError.deterministic == false){
-            deploymentStatus.icon = 'mdi-refresh';
-            deploymentStatus.color = 'yellow';
-          }else if(deploymentStatus.health == 'failed' && deploymentStatus.fatalError && deploymentStatus.fatalError.deterministic == true){
-            deploymentStatus.icon = 'mdi-close';
-            deploymentStatus.color = 'red';
-          }else if(deploymentStatus.health == 'healthy' && deploymentStatus.synced == true){
-            deploymentStatus.icon = 'mdi-check';
-            deploymentStatus.color = 'green';
-          }else if(deploymentStatus.health == 'healthy' && deploymentStatus.synced == false){
-            deploymentStatus.icon = 'mdi-minus';
-            deploymentStatus.color = 'blue'
-          }else{
-            deploymentStatus.icon = 'mdi-help';
-            deploymentStatus.color = 'default';
-          }
-          deploymentStatus.blocksBehindChainhead = deploymentStatus?.chains?.[0]?.chainHeadBlock?.number && deploymentStatus?.chains?.[0]?.latestBlock?.number ? parseInt(deploymentStatus?.chains[0].chainHeadBlock.number) - parseInt(deploymentStatus.chains[0].latestBlock.number) : Number.MAX_SAFE_INTEGER;
-          deploymentStatuses[i] = { deploymentStatus: deploymentStatus }
-        }else{
-          deploymentStatuses[i] = { deploymentStatus: { icon: 'mdi-close', color: 'default', blocksBehindChainhead: deploymentStatus?.chains?.[0]?.chainHeadBlock?.number && deploymentStatus?.chains?.[0]?.latestBlock?.number ? parseInt(deploymentStatus.chains[0].chainHeadBlock.number) - parseInt(deploymentStatus.chains[0].latestBlock.number) : Number.MAX_SAFE_INTEGER } }
-        }
+        deploymentStatuses[i] = { deploymentStatus: deploymentStatusStore.getDeploymentStatusDict[state.allocations[i].subgraphDeployment.ipfsHash] || deploymentStatusStore.getBlankStatus }
       }
       return deploymentStatuses;
+    },
+    getSubgraphNetworks: (state) => {
+      let networks = ["mainnet","arbitrum-one","matic"];
+      for(let i = 0; i < state.allocations.length; i++){
+        if(state.allocations[i]?.subgraphDeployment?.manifest?.network && !networks.includes(state.allocations[i].subgraphDeployment.manifest.network) && state.allocations[i].subgraphDeployment.manifest.network != 'polygon'){
+          networks.push(state.allocations[i].subgraphDeployment.manifest.network);
+        }
+      }
+      return networks;
     },
     totalAllocatedStake: (state) => {
       let totalAllocatedStake = new BigNumber(0);
@@ -344,8 +383,34 @@ export const useAllocationStore = defineStore('allocationStore', {
   },
   actions: {
     async fetchAllPendingRewards(){
-      for(let i = 0; i < this.allocations.length; i++){
-        this.fetchPendingRewards(this.getAllocations[i].id);
+      for(let i = 0; i < this.getAllocations.length; i++){
+        let allocation = this.getAllocations[i];
+        if(!allocation.pendingRewards.loading && !allocation.pendingRewards.loaded)
+          allocation.pendingRewards.loading = true;
+      }
+      let y = 0;
+      while(y < this.getAllocations.length){
+        const max = y + 50 < this.getAllocations.length ? y + 50 : this.getAllocations.length;
+        let batch = new chainStore.getActiveChain.web3.BatchRequest();
+        for(let i = y; i < max; i++){
+          let allocation = this.getAllocations[i];
+          if(allocation.pendingRewards.loading && !allocation.pendingRewards.loaded){
+            batch.add(chainStore.getRewardsContract.methods.getRewards(allocation.id).call.request(function(error, value){
+              if(value != undefined){
+                allocation.pendingRewards.value = BigNumber(value);
+                allocation.pendingRewards.loaded = true;
+              }
+              
+              allocation.pendingRewards.loading = false;
+            }));
+          }
+        }
+        await batch.execute();
+
+        y = y + 50 < this.getAllocations.length ? y + 50 : this.getAllocations.length;
+        if(y < this.getAllocations.length - 1){
+            await new Promise(r => setTimeout(r, 1500));
+        }
       }
     },
     async fetchPendingRewards(allocationId){
@@ -371,18 +436,23 @@ export const useAllocationStore = defineStore('allocationStore', {
     },
     async fetchData(){
       this.loading = true;
-      networkStore.init().then(() => {
+      const fetch = networkStore.init().then(() => {
         this.fetch(0)
         .then((data) => {
           console.log(data);
           this.allocations = data.allocations;
-          this.loaded = true;
-          this.loading = false;
           this.pendingRewards = Array(data.allocations.length).fill();
           for(let i = 0; i < this.pendingRewards.length; i++){
             this.pendingRewards[i] = { value: BigNumber(0), loading: false, loaded: false };
           }
-        })
+          return this.allocations;
+        });
+      });
+      const qos = qosStore.fetchData();
+      const queryFees = queryFeeStore.fetchData();
+      return Promise.all([fetch, qos, queryFees]).then(() => {
+        this.loaded = true;
+        this.loading = false;
       });
     },
     async fetch(skip){
@@ -398,6 +468,7 @@ export const useAllocationStore = defineStore('allocationStore', {
             subgraphDeployment{
               versions(first:1, orderBy:version, orderDirection:desc){
                 subgraph{
+                  id
                   metadata{
                     image
                     displayName
@@ -412,6 +483,9 @@ export const useAllocationStore = defineStore('allocationStore', {
               signalledTokens
               queryFeesAmount
               deniedAt
+              manifest{
+                network
+              }
             }
             allocatedTokens
             effectiveAllocation
@@ -444,6 +518,16 @@ export const useAllocationStore = defineStore('allocationStore', {
           })
         }
         return data;
+      }).catch((err) => {
+        this.loading = false;
+        if(err.graphQLErrors[0]?.message){
+          console.error(`Allocations API error: ${err.graphQLErrors[0].message}`)
+          alert(`Allocations API Error: ${err.graphQLErrors[0].message}`);
+        }
+        if(err.message){
+          console.error(`Allocations query error: ${err.message}`);
+          alert(`Allocations Error: ${err.message}`);
+        }
       });
     }
   }

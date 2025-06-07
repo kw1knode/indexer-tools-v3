@@ -42,11 +42,11 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
       let futureStakedTokens = [];
       for(let i = 0; i < state.getSelectedS.length; i++){
         let subgraph = state.getSelectedS[i];
-        let associatedAllocation = allocationStore.getSelectedAllocations.find((e) => e.subgraphDeployment.ipfsHash == subgraph.currentVersion.subgraphDeployment.ipfsHash);
+        let associatedAllocation = allocationStore.getSelectedAllocations.find((e) => e.subgraphDeployment.ipfsHash == subgraph.deployment.ipfsHash);
         if(associatedAllocation){
-          futureStakedTokens[i] = { futureStakedTokens: new BigNumber(subgraph.currentVersion.subgraphDeployment.stakedTokens).minus(associatedAllocation.allocatedTokens) };
+          futureStakedTokens[i] = { futureStakedTokens: new BigNumber(subgraph.deployment.stakedTokens).minus(associatedAllocation.allocatedTokens) };
         }else{
-          futureStakedTokens[i] = { futureStakedTokens: new BigNumber(subgraph.currentVersion.subgraphDeployment.stakedTokens) };
+          futureStakedTokens[i] = { futureStakedTokens: new BigNumber(subgraph.deployment.stakedTokens) };
         }
       }
       return futureStakedTokens;
@@ -55,8 +55,8 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
       let newAprs = [];
       for(let i = 0; i < state.getSelectedS.length; i++){
         let subgraph = state.getSelectedS[i];
-        if(subgraph.currentSignalledTokens != "0") {
-          newAprs[i] = { newApr: calculateNewApr(subgraph.currentSignalledTokens, state.getFutureStakedTokens[i].futureStakedTokens, networkStore, (state.newAllocations[subgraph.currentVersion.subgraphDeployment.ipfsHash] ? state.newAllocations[subgraph.currentVersion.subgraphDeployment.ipfsHash].toString() : "0"))};
+        if(subgraph.deployment.signalledTokens != "0") {
+          newAprs[i] = { newApr: calculateNewApr(subgraph.deployment.signalledTokens, state.getFutureStakedTokens[i].futureStakedTokens, networkStore, (state.newAllocations[subgraph.deployment.ipfsHash] ? state.newAllocations[subgraph.deployment.ipfsHash].toString() : "0"))};
         }else{
           newAprs[i] = { newApr: 0 };
         }
@@ -69,10 +69,10 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
         let subgraph = state.getSelectedS[i];
         console.log("FUTURE STAKED TOKENS");
         console.log(state.getFutureStakedTokens[i].futureStakedTokens.toString());
-        const newAllocation = state.newAllocations[subgraph.currentVersion.subgraphDeployment.ipfsHash] ? state.newAllocations[subgraph.currentVersion.subgraphDeployment.ipfsHash] : 0;
+        const newAllocation = state.newAllocations[subgraph.deployment.ipfsHash] ? state.newAllocations[subgraph.deployment.ipfsHash] : 0;
         console.log(newAllocation);
         if(state.getFutureStakedTokens[i].futureStakedTokens.plus(new BigNumber(newAllocation*10**18)) > 0)
-            proportions[i] = { newProportion: ( subgraph.currentVersion.subgraphDeployment.signalledTokens / networkStore.getTotalTokensSignalled ) / ( state.getFutureStakedTokens[i].futureStakedTokens.plus(new BigNumber(newAllocation*10**18)) / networkStore.getTotalTokensAllocated ) };
+            proportions[i] = { newProportion: ( subgraph.deployment.signalledTokens / networkStore.getTotalTokensSignalled ) / ( state.getFutureStakedTokens[i].futureStakedTokens.plus(new BigNumber(newAllocation*10**18)) / networkStore.getTotalTokensAllocated ) };
           else
             proportions[i] = { newProportion: 0 };
       }
@@ -82,8 +82,8 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
       let dailyRewards = [];
       for(let i = 0; i < state.getSelectedS.length; i++){
         let subgraph = state.getSelectedS[i];
-        if(subgraph.currentVersion.subgraphDeployment.stakedTokens != "0" && !accountStore.loading) {
-          dailyRewards[i] = { dailyRewards: calculateSubgraphDailyRewards(subgraph.currentSignalledTokens, state.getFutureStakedTokens[i].futureStakedTokens, networkStore, (state.newAllocations[subgraph.currentVersion.subgraphDeployment.ipfsHash] ? state.newAllocations[subgraph.currentVersion.subgraphDeployment.ipfsHash].toString() : "0")) }
+        if(subgraph.deployment.stakedTokens != "0" && !accountStore.loading) {
+          dailyRewards[i] = { dailyRewards: calculateSubgraphDailyRewards(subgraph.deployment.signalledTokens, state.getFutureStakedTokens[i].futureStakedTokens, networkStore, (state.newAllocations[subgraph.deployment.ipfsHash] ? state.newAllocations[subgraph.deployment.ipfsHash].toString() : "0")) }
         }else{
           dailyRewards[i] = { dailyRewards: 0 }
         }
@@ -94,7 +94,7 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
       let dailyRewardsCuts = [];
       for(let i = 0; i < state.getSelectedS.length; i++){
         let subgraph = state.getSelectedS[i];
-        if (subgraph.currentVersion.subgraphDeployment.stakedTokens > 0 && !accountStore.loading){
+        if (subgraph.deployment.stakedTokens > 0 && !accountStore.loading){
           dailyRewardsCuts[i] = { dailyRewardsCut: indexerCut(state.getDailyRewards[i].dailyRewards, accountStore.cut) };
         }else{
           dailyRewardsCuts[i] = { dailyRewardsCut: 0 };
@@ -108,8 +108,8 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
     calculatedOpeningStake: (state) => {
       let total = 0;
       for(let i in state.getSelectedS){
-        if(state.newAllocations[state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash])
-          total += parseInt(state.newAllocations[state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash]);
+        if(state.newAllocations[state.getSelectedS[i].deployment.ipfsHash])
+          total += parseInt(state.newAllocations[state.getSelectedS[i].deployment.ipfsHash]);
         console.log(total);
       }
       return total;
@@ -121,7 +121,10 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
       return accountStore.availableStake;
     },
     calculatedAvailableStake: (state) => {
-      let calc = BigNumber(state.availableStake).plus(allocationStore.calculatedClosingStake).minus(Web3.utils.toWei(state.calculatedOpeningStake.toString()));
+      let calc = BigNumber(state.availableStake)
+        .plus(allocationStore.calculatedClosingStake)
+        .minus(Web3.utils.toWei(state.calculatedOpeningStake.toString()))
+        .integerValue(BigNumber.ROUND_FLOOR);
       if(calc.toString() != "NaN")
         return calc
       else
@@ -132,29 +135,29 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
 
       if(state.getSelectedSubgraphs.length > 0) {
         for (const i in state.getSelectedSubgraphs) {
-          if(!state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.deniedAt){
-            let newAllocationSize = state.newAllocations[state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] ? state.newAllocations[state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] : 0;
+          if(!state.getSelectedSubgraphs[i].deployment.deniedAt){
+            let newAllocationSize = state.newAllocations[state.getSelectedSubgraphs[i].deployment.ipfsHash] ? state.newAllocations[state.getSelectedSubgraphs[i].deployment.ipfsHash] : 0;
 
             if (newAllocationSize) {
               let closingAllocation = allocationStore.getSelectedAllocations.find(e => {
-                return e.subgraphDeployment.ipfsHash === state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash;
+                return e.subgraphDeployment.ipfsHash === state.getSelectedSubgraphs[i].deployment.ipfsHash;
               });
 
               if (closingAllocation) {
                 totalRewardsPerYear = totalRewardsPerYear.plus(
-                    new BigNumber(state.getSelectedSubgraphs[i].currentSignalledTokens)
+                    new BigNumber(state.getSelectedSubgraphs[i].deployment.signalledTokens)
                         .dividedBy(networkStore.getTotalTokensSignalled)
                         .multipliedBy(networkStore.getIssuancePerYear)
                         .multipliedBy(newAllocationSize)
-                        .dividedBy(new BigNumber(state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.stakedTokens).minus(closingAllocation.allocatedTokens).plus(new BigNumber(newAllocationSize).multipliedBy("1000000000000000000")))
+                        .dividedBy(new BigNumber(state.getSelectedSubgraphs[i].deployment.stakedTokens).minus(closingAllocation.allocatedTokens).plus(new BigNumber(newAllocationSize).multipliedBy("1000000000000000000")))
                 );
               } else {
                 totalRewardsPerYear = totalRewardsPerYear.plus(
-                    new BigNumber(state.getSelectedSubgraphs[i].currentSignalledTokens)
+                    new BigNumber(state.getSelectedSubgraphs[i].deployment.signalledTokens)
                         .dividedBy(networkStore.getTotalTokensSignalled)
                         .multipliedBy(networkStore.getIssuancePerYear)
                         .multipliedBy(newAllocationSize)
-                        .dividedBy(new BigNumber(state.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.stakedTokens).plus(new BigNumber(newAllocationSize).multipliedBy("1000000000000000000")))
+                        .dividedBy(new BigNumber(state.getSelectedSubgraphs[i].deployment.stakedTokens).plus(new BigNumber(newAllocationSize).multipliedBy("1000000000000000000")))
                 );
 
               }
@@ -174,14 +177,25 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
 
       return simulatedTotalRewardsPerYear.dividedBy(simulatedTotalStake);
     },
+    calculatedSelectedMaxAllos: (state) => {
+      let selectedMaxAllos = new BigNumber(0);
+      if(state.getSelectedSubgraphs.length > 0) {
+        for (const i in state.getSelectedSubgraphs) {
+          if(!state.getSelectedSubgraphs[i].deployment.deniedAt && state.getSelectedSubgraphs[i].deployment.signalledTokens > 0 && state.getSelectedSubgraphs[i].maxAllo > 0){
+            selectedMaxAllos = selectedMaxAllos.plus(BigNumber(state.getSelectedSubgraphs[i].maxAllo));
+          }
+        }
+      }
+      return selectedMaxAllos;
+    },
     buildCommands: (state) => {
       let commands = "";
       for(const i in allocationStore.getSelectedAllocations){
         commands += `graph indexer rules delete ${allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash} --network ${chainStore.getActiveChain.id}\n`
       }
       for(const i in state.getSelectedS){
-        if(state.newAllocations[state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash] > 0)
-          commands += `graph indexer rules set ${state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash} allocationAmount ${state.newAllocations[state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash]} decisionBasis always --network ${chainStore.getActiveChain.id}\n`
+        if(state.newAllocations[state.getSelectedS[i].deployment.ipfsHash] > 0)
+          commands += `graph indexer rules set ${state.getSelectedS[i].deployment.ipfsHash} allocationAmount ${state.newAllocations[state.getSelectedS[i].deployment.ipfsHash]} decisionBasis always --network ${chainStore.getActiveChain.id}\n`
       }
       return commands;
     },
@@ -200,8 +214,8 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
             customPOI = `${state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]} true `;
           }
         }
-        if(Object.keys(state.newAllocations).includes(allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash)){
-          if(BigNumber(allocationStore.getSelectedAllocations[i].allocatedTokens).dividedBy(10**18) > BigNumber(state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash])){
+        if(subgraphStore.selected.includes(allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash)){
+          if(BigNumber(allocationStore.getSelectedAllocations[i].allocatedTokens).dividedBy(10**18).gt(BigNumber(state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]))){
             reallocate += `graph indexer actions queue reallocate ${allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash} ${allocationStore.getSelectedAllocations[i].id} ${state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]} ${customPOI}--network ${chainStore.getActiveChain.id}\n`;
           } else{
             reallocate2 += `graph indexer actions queue reallocate ${allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash} ${allocationStore.getSelectedAllocations[i].id} ${state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]} ${customPOI}--network ${chainStore.getActiveChain.id}\n`;
@@ -212,8 +226,8 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
         }
       }
       for(const i in state.getSelectedS){
-        if(state.newAllocations[state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash] > 0 && !skip.includes(state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash))
-          allocate += `graph indexer actions queue allocate ${state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash} ${state.newAllocations[state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash]} --network ${chainStore.getActiveChain.id}\n`
+        if(state.newAllocations[state.getSelectedS[i].deployment.ipfsHash] > 0 && !skip.includes(state.getSelectedS[i].deployment.ipfsHash))
+          allocate += `graph indexer actions queue allocate ${state.getSelectedS[i].deployment.ipfsHash} ${state.newAllocations[state.getSelectedS[i].deployment.ipfsHash]} --network ${chainStore.getActiveChain.id}\n`
       }
       return `${unallocate}${reallocate}${allocate}${reallocate2}`;
     },
@@ -224,11 +238,11 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
       let skip = [];
       for(const i in allocationStore.getSelectedAllocations){
         let allo = {};
-        if(Object.keys(state.newAllocations).includes(allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash)){
+        if(subgraphStore.selected.includes(allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash)){
           //console.log("CHECK");
           //console.log(BigNumber(allocationStore.getSelectedAllocations[i].allocatedTokens).dividedBy(10**18).toString());
           //console.log(state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]);
-          if(BigNumber(allocationStore.getSelectedAllocations[i].allocatedTokens).dividedBy(10**18) > BigNumber(state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash])){
+          if(BigNumber(allocationStore.getSelectedAllocations[i].allocatedTokens).dividedBy(10**18).gt(BigNumber(state.newAllocations[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]))){
             allo = {
               status: 'queued',
               type: 'reallocate',
@@ -272,7 +286,7 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
           };
           if(state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]){
             if(state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash] == "0x0"){
-              allo.poi = "0x0000000000000000000000000000000000000000";
+              allo.poi = "0x0000000000000000000000000000000000000000000000000000000000000000";
             } else{
               allo.poi = state.customPOIs[allocationStore.getSelectedAllocations[i].subgraphDeployment.ipfsHash]
             }
@@ -282,12 +296,12 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
         }
       }
       for(const i in state.getSelectedS){
-        if(state.newAllocations[state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash] > 0 && !skip.includes(state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash)){
+        if(state.newAllocations[state.getSelectedS[i].deployment.ipfsHash] > 0 && !skip.includes(state.getSelectedS[i].deployment.ipfsHash)){
           allocate.push({
             status: 'queued',
             type: 'allocate',
-            deploymentID: state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash,
-            amount: state.newAllocations[state.getSelectedS[i].currentVersion.subgraphDeployment.ipfsHash].toString(),
+            deploymentID: state.getSelectedS[i].deployment.ipfsHash,
+            amount: state.newAllocations[state.getSelectedS[i].deployment.ipfsHash].toString(),
             protocolNetwork: chainStore.getActiveChain.id,
             source: 'Indexer Tools - Agent Connect',
             reason: 'Allocation Wizard',
@@ -302,26 +316,37 @@ export const useNewAllocationSetterStore = defineStore('allocationSetter', {
   actions: {
     async update(){
       for(let i = 0; i < this.getSelectedSubgraphs.length; i++){
-        if(this.getSelectedSubgraphs[i].currentSignalledTokens == 0)
-          this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] ||= this.minAllocation0Signal;
+        if(this.getSelectedSubgraphs[i].deployment.signalledTokens == 0)
+          this.newAllocations[this.getSelectedSubgraphs[i].deployment.ipfsHash] ||= this.minAllocation0Signal;
         else
-          this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] ||= this.minAllocation;
+          this.newAllocations[this.getSelectedSubgraphs[i].deployment.ipfsHash] ||= this.minAllocation;
       }
     },
     async setMinimums(){
       for(let i = 0; i < this.getSelectedSubgraphs.length; i++){
-        if(this.getSelectedSubgraphs[i].currentSignalledTokens > 0 && !this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.deniedAt && this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] < this.minAllocation)
-          this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] = this.minAllocation;
+        if(this.getSelectedSubgraphs[i].deployment.signalledTokens > 0 && !this.getSelectedSubgraphs[i].deployment.deniedAt && this.newAllocations[this.getSelectedSubgraphs[i].deployment.ipfsHash] < this.minAllocation)
+          this.newAllocations[this.getSelectedSubgraphs[i].deployment.ipfsHash] = this.minAllocation;
       }
     },
     async setMinimums0Signal(){
       for(let i = 0; i < this.getSelectedSubgraphs.length; i++){
-        if((this.getSelectedSubgraphs[i].currentSignalledTokens == 0 || this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.deniedAt) && this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] < this.minAllocation0Signal)
-          this.newAllocations[this.getSelectedSubgraphs[i].currentVersion.subgraphDeployment.ipfsHash] = this.minAllocation0Signal;
+        if((this.getSelectedSubgraphs[i].deployment.signalledTokens == 0 || this.getSelectedSubgraphs[i].deployment.deniedAt) && this.newAllocations[this.getSelectedSubgraphs[i].deployment.ipfsHash] < this.minAllocation0Signal)
+          this.newAllocations[this.getSelectedSubgraphs[i].deployment.ipfsHash] = this.minAllocation0Signal;
       }
     },
     async setAllMinimums(){
       return new Promise([this.setMinimums(), this.setMinimums0Signal()]);
+    },
+    async setAllMaxAllos(){
+      for(let i = 0; i < this.getSelectedSubgraphs.length; i++){
+        if(this.getSelectedSubgraphs[i].maxAllo != Number.MIN_SAFE_INTEGER && Math.floor(this.getSelectedSubgraphs[i].maxAllo) > 0)
+          this.newAllocations[this.getSelectedSubgraphs[i].deployment.ipfsHash] = Math.floor(this.getSelectedSubgraphs[i].maxAllo);
+      }
+    },
+    async resetAllos(){
+      for(let i = 0; i < this.getSelectedSubgraphs.length; i++){
+      this.newAllocations[this.getSelectedSubgraphs[i].deployment.ipfsHash] = 0;
+      }
     },
   },
 })

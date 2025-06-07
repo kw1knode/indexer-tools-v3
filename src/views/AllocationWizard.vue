@@ -3,23 +3,21 @@
     <v-stepper
       alt-labels
       editable
-      :items="['Close Allocations', 'Pick Subgraphs', 'Set Allocations', 'Execute Allocations']"
+      :items="['Close Allocations', 'Set Custom POIs', 'Pick Subgraphs', 'Set Allocations', 'Execute Allocations']"
     >
       <template v-slot:item.1>
         <AllocationsDashboard selectable />
       </template>
-
       <template v-slot:item.2>
-        <SubgraphsDashboard selectable />
-      </template>
-
-      <template v-slot:item.3>
-        <h3 class="mx-4 my-4">Allocation Setter</h3>
-        <AllocationSetter />
-        <h3 class="mx-4 my-4">Custom POI Setter</h3>
         <CustomPoiSetter></CustomPoiSetter>
       </template>
+      <template v-slot:item.3>
+        <SubgraphsDashboard selectable />
+      </template>
       <template v-slot:item.4>
+        <AllocationSetter />        
+      </template>
+      <template v-slot:item.5>
         <div
           class="mb-15 mx-5"
           v-if="accountStore.getAgentConnectStatus"
@@ -80,6 +78,13 @@
           </v-card-text>
         </v-card>
 
+        <v-card>
+          <v-card-text>
+            Selected Max Allos:
+            <h1 class="pt-2">{{ numeral(newAllocationSetterStore.calculatedSelectedMaxAllos.integerValue(BigNumber.ROUND_DOWN)).format("0,0") }}</h1>
+          </v-card-text>
+        </v-card>
+
       </v-card>
     </v-footer>
   </div>
@@ -88,6 +93,7 @@
 <script setup>
 import numeral from "numeral";
 import Web3 from "web3";
+import BigNumber from "bignumber.js";
 import AllocationsDashboard from "./AllocationsDashboard.vue";
 import SubgraphsDashboard from "./SubgraphsDashboard.vue";
 import AllocationSetter from "@/components/AllocationSetter.vue";

@@ -39,6 +39,21 @@ const routes = [
         name: 'Offchain Sync Manager',
         component: () => import('@/views/OffchainSyncManager.vue'),
       },
+      {
+        path: 'query-dashboard',
+        name: 'Query Fee Dashboard',
+        component: () => import('@/views/QueryDashboard.vue'),
+      },
+      {
+        path: 'qos-dashboard',
+        name: 'QoS Dashboard',
+        component: () => import('@/views/QosDashboard.vue'),
+      },
+      {
+        path: 'status-dashboard',
+        name: 'Status Dashboard',
+        component: () => import('@/views/DeploymentStatusDashboard.vue'),
+      }
     ],
   },
 ]
